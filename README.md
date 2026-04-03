@@ -7,6 +7,7 @@ Agent Skills for YouTube creators and developers. Compatible with any agent that
 | Skill | Description |
 |-------|-------------|
 | [youthumb-prompts](./youthumb-prompts/) | Generate optimized prompts for YouThumb.ai YouTube thumbnails |
+| [youthumb-api](./youthumb-api/) | Interact with the YouThumb.ai API — upload assets, create projects, generate thumbnails |
 
 ## Compatibility
 
