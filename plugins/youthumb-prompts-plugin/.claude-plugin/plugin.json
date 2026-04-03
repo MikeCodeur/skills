@@ -1,5 +1,5 @@
 {
-  "name": "youthumb-prompts-plugin",
+  "name": "youthumb-prompts",
   "description": "Generate optimized prompts for YouThumb.ai YouTube thumbnails",
   "version": "1.0.0"
 }

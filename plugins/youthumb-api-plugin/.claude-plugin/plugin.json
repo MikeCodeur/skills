@@ -1,5 +1,5 @@
 {
-  "name": "youthumb-api-plugin",
+  "name": "youthumb-api",
   "description": "Interact with the YouThumb.ai API to generate YouTube thumbnails",
   "version": "1.0.0"
 }
