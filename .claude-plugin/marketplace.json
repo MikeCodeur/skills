@@ -1,0 +1,39 @@
+{
+  "name": "mikecodeur-skills",
+  "owner": {
+    "name": "MikeCodeur",
+    "email": "mike@mikecodeur.com"
+  },
+  "metadata": {
+    "description": "Skills for YouTube creators and developers by MikeCodeur",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "youthumb-prompts-plugin",
+      "source": "./plugins/youthumb-prompts-plugin",
+      "description": "Generate optimized prompts for YouThumb.ai YouTube thumbnails",
+      "version": "1.0.0",
+      "author": {
+        "name": "MikeCodeur"
+      },
+      "homepage": "https://youthumb.ai",
+      "license": "MIT",
+      "category": "creative",
+      "tags": ["youtube", "thumbnails", "prompts", "youthumb"]
+    },
+    {
+      "name": "youthumb-api-plugin",
+      "source": "./plugins/youthumb-api-plugin",
+      "description": "Interact with the YouThumb.ai API to generate AI-powered YouTube thumbnails",
+      "version": "1.0.0",
+      "author": {
+        "name": "MikeCodeur"
+      },
+      "homepage": "https://youthumb.ai",
+      "license": "MIT",
+      "category": "development",
+      "tags": ["youtube", "thumbnails", "api", "youthumb"]
+    }
+  ]
+}
