@@ -232,6 +232,12 @@ When pasting prompts into YouThumb.ai, users can also set:
 
 ---
 
+## Detailed Examples
+
+For full prompt examples across 6 video types (tutorial, comparison, news, opinion, product review, security), read [references/prompt-examples.md](references/prompt-examples.md).
+
+Load it when you need inspiration for a specific video category.
+
 ## Example Walkthrough
 
 **Step 1 — Person:** "Alex Dev"
