@@ -15,9 +15,9 @@
       "description": "Interact with the YouThumb.ai API to generate YouTube thumbnails"
     },
     {
-      "name": "agentmail-api",
-      "source": "./plugins/agentmail-api-plugin",
-      "description": "Drive the AgentMail email marketing API — contacts, templates, campaigns, domains and stats"
+      "name": "agentsmail-api",
+      "source": "./plugins/agentsmail-api-plugin",
+      "description": "Drive the AgentsMail email marketing API — contacts, templates, campaigns, domains and stats"
     }
   ]
 }

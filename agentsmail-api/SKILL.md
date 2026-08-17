@@ -1,5 +1,5 @@
 ---
-name: agentmail-api
+name: agentsmail-api
 description: >
   Drive the AgentsMail email marketing API v1 from an API key — lists, contacts,
   tags, templates, campaigns, automated sequences, sender addresses, sending
