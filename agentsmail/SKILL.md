@@ -1,18 +1,20 @@
 ---
-name: agentsmail-api
+name: agentsmail
 description: >
-  Drive the AgentsMail email marketing API v1 from an API key — lists, contacts,
-  tags, templates, campaigns, automated sequences, sender addresses, sending
-  domains and stats.
-  Use when the user says "AgentsMail API", "send a campaign", "import contacts",
-  "create an email template", "build a drip sequence", "check campaign stats",
-  "verify sending domain", "why was my send refused", or when automating email
-  marketing programmatically.
+  Work with AgentsMail — its API v1 (lists, contacts, tags, templates,
+  campaigns, automated sequences, sender addresses, sending domains, stats) and
+  the craft of the emails themselves: writing a template a human can edit,
+  editable zones, dark mode, deliverability.
+  Use when the user says "AgentsMail", "send a campaign", "import contacts",
+  "create an email template", "build an editable template", "add editable zones",
+  "build a drip sequence", "check campaign stats", "verify sending domain",
+  "why was my send refused", or when automating email marketing
+  programmatically.
 license: MIT
 compatibility: Requires curl or any HTTP client. An AgentsMail API key is required.
 metadata:
   author: mikecodeur
-  version: '2.0'
+  version: '2.1'
 ---
 
 # AgentsMail API — Email Marketing Skill
@@ -366,6 +368,70 @@ collapses without them.**
 automatically on create and update. Anything else is left untouched and listed in
 `unsupportedTags` in the response — **read it**, or a raw `*|MERGE7|*` ships to real inboxes.
 
+### Editable zones — make the template usable by a human
+
+A template you generate is a complete HTML file, and a human will have to rewrite its copy for
+every campaign. Without markers they get a raw HTML textarea. With them they get the words, and
+never the design.
+
+Mark a container with `data-editable="<name>"`. The container **is** the zone, its closing tag
+**is** the boundary. Nothing is stored: the list is derived from the HTML on every read.
+
+```html
+<td data-editable="body" style="padding:24px 40px; font-size:16px; line-height:1.6; color:#333333">
+  <p style="margin:0 0 16px 0">Hi {{firstName}},</p>
+  <p style="margin:0">Write your message here.</p>
+</td>
+```
+
+**The design belongs to the container, the content to the writer.** Put padding, border, colour
+and typography on the marked element; the writer only replaces what is inside it.
+
+**Only these tags may appear inside a zone** — anything else and the zone is refused (it stays
+read-only, editable in Source only):
+
+`<p>` `<br>` `<b>` `<strong>` `<i>` `<em>` `<u>` `<s>` `<a>` `<ul>` `<ol>` `<li>` `<blockquote>`
+`<h1>`–`<h6>` `<img>` `<hr>`
+
+So a zone must never contain `<table>`, `<div>`, `<span>`, an `<!--[if mso]>` conditional, or an
+`on*` attribute. Mark the **smallest container that holds only text-level content**.
+
+**The button trap.** An email button is a table — Outlook requires it. Marking the wrapper makes
+the zone contain a `<table>`, so it is refused. Mark the `<a>` instead:
+
+```html
+<div style="padding:0 32px 30px">
+  <table role="presentation"><tr><td style="background:#0f9d63; border-radius:7px">
+    <a data-editable="cta" href="https://example.com" style="…">Read more</a>
+  </td></tr></table>
+</div>
+```
+
+**Hard rules, all enforced — a document that breaks one is refused whole:**
+
+- names are **unique** (the name is the save address);
+- zones **never nest**;
+- `{{unsubscribeUrl}}` stays **outside** every zone — that is what makes it undeletable from the
+  visual editor, and saving verifies it survived;
+- void elements (`<img>`, `<br>`, `<hr>`) cannot be zones.
+
+**Names are labels, not keys.** They are shown in the interface. `body` is fine; `Blue callout` or
+`Primary button` is better on a template meant to offer reusable blocks.
+
+**The template is its own block library.** The editor never invents design: adding a block means
+duplicating a zone that already exists, so the copy carries the exact same styling. A template
+therefore offers **as many block types as it declares zones** — one zone, one type. When you
+generate a template, ship **one exemplar of every block** you want available: a callout, a button,
+a signature, a two-column row. That is what makes it reusable rather than a one-shot email.
+
+**Checklist before you return a template:**
+
+1. every editable area carries `data-editable`, with a human-readable name;
+2. no zone contains a tag outside the list above;
+3. `{{unsubscribeUrl}}` is present and outside every zone;
+4. one exemplar exists for each block type you want the writer to be able to add;
+5. `POST /render` returns no `unknownVariables` and no unexpected warning.
+
 ### Dark mode — the rule that matters
 
 **Never declare `<meta name="color-scheme">` without shipping the matching rules.** The
@@ -587,3 +653,7 @@ plan. Exceeding one answers 400 and names the ceiling.
 | Verifying DKIM and stopping there | Ownership is a second, separate condition (`_agentmail-challenge` `TXT`). |
 | Expecting one unsubscribe to cover a person | A contact belongs to one list. The same person in two lists unsubscribes twice. |
 | Editing a published sequence version | Published versions are frozen. Open a draft, change it, publish it. |
+| Shipping a template with no `data-editable` | The writer gets a raw HTML textarea and no visual editing at all. |
+| Marking the `<div>` that wraps a button's `<table>` | The zone contains a `<table>`, so it is refused whole. Mark the `<a>`. |
+| Putting `{{unsubscribeUrl}}` inside a zone | It becomes deletable from the editor, and saving is refused when it disappears. |
+| Declaring one zone and expecting a block library | A template offers as many block types as it declares zones. Ship one exemplar of each. |

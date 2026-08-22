@@ -8,7 +8,7 @@ Agent Skills for YouTube creators and developers. Compatible with any agent that
 |-------|-------------|
 | [youthumb-prompts](./youthumb-prompts/) | Generate optimized prompts for YouThumb.ai YouTube thumbnails |
 | [youthumb-api](./youthumb-api/) | Interact with the YouThumb.ai API — upload assets, create projects, generate thumbnails |
-| [agentsmail-api](./agentsmail-api/) | Drive the AgentsMail email marketing API — contacts, templates, campaigns, sending domains, stats |
+| [agentsmail](./agentsmail/) | Work with AgentsMail — its API (contacts, templates, campaigns, sequences, sending domains, stats) and the craft of the emails themselves: editable zones, dark mode, deliverability |
 
 ## Compatibility
 
