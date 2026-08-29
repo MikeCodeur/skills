@@ -14,7 +14,7 @@ license: MIT
 compatibility: Requires curl or any HTTP client. An AgentsMail API key is required.
 metadata:
   author: mikecodeur
-  version: '2.1'
+  version: '2.2'
 ---
 
 # AgentsMail API — Email Marketing Skill
@@ -36,7 +36,7 @@ in a real inbox. `POST /render` is the only side-effect-free endpoint.
 
 ## Authentication
 
-**Get your API key:** log in to your AgentsMail instance → Account → API keys → create a key.
+**Get your API key:** log in to AgentsMail → Account → API keys → create a key.
 
 A key belongs to exactly one organization. That organization is carried inside the key, so
 **no request body ever takes an `organizationId`** — it is always derived from the key.
@@ -53,9 +53,6 @@ curl -s -H "x-api-key: $AGENTMAIL_API_KEY" "$AGENTMAIL_BASE_URL/api/v1/me"
 > `https://www.agentsmail.io/api/v1/…`. A 308 does preserve the method and the body, so `curl -L`
 > survives it — but a client that does not follow redirects receives an empty 308 and looks like it
 > failed for no reason. Point straight at `www.` and the problem disappears.
->
-> Self-hosting? Override `AGENTMAIL_BASE_URL` with your own origin. Nothing else in this skill is
-> host-specific.
 
 All routes live under `/api/v1` and require the header:
 
@@ -93,13 +90,13 @@ never on a message:
 
 | Blocker | Meaning | How to clear it |
 |---------|---------|-----------------|
-| `sending_disabled` | Sending is switched off application-wide | Nothing an API caller can fix |
-| `organization_not_allowed` | The organization is not cleared to send | Ask the operator |
-| `sending_paused` | The email provider **suspended** this organization, usually over a bounce or complaint rate | **Not retryable.** It clears on its own when the provider re-enables sending. Campaign test sends stay available meanwhile — they go out under the application address |
+| `sending_disabled` | Sending is paused across AgentsMail | Nothing you can fix from the API. Wait for it to be lifted |
+| `organization_not_allowed` | The organization is not cleared to send | Ask AgentsMail support to clear it |
+| `sending_paused` | The email provider **suspended** this organization, usually over a bounce or complaint rate | **Not retryable.** It clears on its own when the provider re-enables sending. Campaign test sends stay available meanwhile — they go out under the shared AgentsMail address |
 | `domain_not_verified` | A domain is declared but its DKIM is not `SUCCESS` | Publish the DNS records, then `verify` |
 | `domain_ownership_unproven` | DKIM is `SUCCESS`, but this organization has not proved it owns the domain | Publish the `_agentmail-challenge` `TXT` record, then `verify` |
 | `sender_not_on_verified_domain` | A domain is verified, but the **default** sender address is not on it (nor on one of its subdomains) | Set or promote an address on the verified domain |
-| `no_sender_identity` | Never blocking on its own — without a sender address, mail falls back to the application address. It only appears alongside a real blocker, to say the account is bare | Add an address (`POST /settings/identities`) |
+| `no_sender_identity` | Never blocking on its own — without a sender address, mail falls back to the shared AgentsMail address. It only appears alongside a real blocker, to say the account is bare | Add an address (`POST /settings/identities`) |
 
 `sending.setup` reports the same state the account owner reads on screen, as one code instead of a
 list: `status` (e.g. `dns_pending`) and `provisioning`.
@@ -147,6 +144,8 @@ at the last step.
 | DELETE | `/contacts/:id/tags/:tagId` | Detach a tag (idempotent) |
 | POST | `/contacts/:id/unsubscribe` | Unsubscribe (idempotent) |
 | POST | `/contacts/:id/resubscribe` | Resubscribe (idempotent) |
+| POST | `/contacts/:id/topics/:topicId/opt-out` | Stop one topic without unsubscribing the contact |
+| POST | `/contacts/:id/topics/:topicId/resubscribe` | Re-enable one topic and preserve preference history |
 | **Tags** | | |
 | GET | `/tags` | Tags with contact counts, `?search=` supported |
 | POST | `/tags` | Create a tag (names are unique, case-insensitive) |
@@ -157,6 +156,10 @@ at the last step.
 | PATCH | `/templates/:id` | Update name, default subject, content |
 | DELETE | `/templates/:id` | Delete a template |
 | POST | `/templates/:id/test-send` | Send a test (real send) |
+| **Media** | | |
+| GET | `/media` | Paginated media library, `?folder=` and `?search=` supported |
+| POST | `/media` | Upload an image (`multipart/form-data`), with optional `compression` |
+| DELETE | `/media?path=…` | Remove a media by its storage `path` — no reference check |
 | **Campaigns** | | |
 | GET | `/campaigns` | Paginated campaigns, `?status=` and `?search=` |
 | POST | `/campaigns` | Create a draft campaign |
@@ -189,7 +192,7 @@ to the default instead of failing. Responses carry a `pagination` object next to
 ### Response envelope and status codes
 
 Success: `{"success": true, "data": …, "pagination": …}`
-Failure: `{"error": "…", "details": [ …zod issues… ]}`
+Failure: `{"error": "…", "details": [ …field-level issues… ]}`
 
 | Code | When |
 |------|------|
@@ -214,10 +217,12 @@ the path that leads to it.**
 |-----------|----------|
 | Reads | membership in the key's organization |
 | Writes | organization role **ADMIN** or above |
-| `POST /campaigns/:id/send` | organization ADMIN **plus** an application-level admin role |
+| `POST /campaigns/:id/send` | organization ADMIN, **and API sending enabled for the account** |
 
-Mass sending is gated behind an application-level allowlist. A `404` on `send` can therefore mean
-"you are not permitted to send", not "the campaign is gone".
+Triggering a real send over the API is not open to every account yet. A `404` on `send` can
+therefore mean "this account may not send from the API", not "the campaign is gone" — draft,
+render and schedule from the API, and send that campaign from the interface. Ask AgentsMail
+support to have API sending opened.
 
 ---
 
@@ -347,10 +352,23 @@ organization keeps inheriting future default improvements — that is what the r
 
 ### Variables
 
-A closed vocabulary of seven names:
+A closed vocabulary of ten names:
 
 `{{firstName}}` · `{{lastName}}` · `{{email}}` · `{{unsubscribeUrl}}` · `{{currentYear}}` ·
-`{{postalAddress}}` · `{{confirmationUrl}}` (opt-in confirmation template only)
+`{{today}}` · `{{postalAddress}}` · `{{topicOptOutUrl}}` (only on a send carrying a topic) ·
+`{{confirmationUrl}}` (opt-in confirmation template only) · `{{poweredBy}}`
+
+`{{today}}` and `{{currentYear}}` are computed at render time from the organization's time zone and
+email language; `{{today}}` in a sequence resolves when the step actually sends. Values passed in
+`variables` for them — as for `{{unsubscribeUrl}}`, `{{postalAddress}}` and `{{topicOptOutUrl}}` —
+are ignored: the server decides them. `{{topicOptOutUrl}}` renders only when the campaign or the
+sequence carries a topic; shipping it without one makes the send **refused**, so leave it out of a
+generic template.
+
+`{{poweredBy}}` is the only one that resolves to **markup**, not text: a small, discreet
+"Sent with AgentsMail.io" link that inherits the surrounding colour. Put it on its own line in a
+footer, never inside an attribute. It is optional — nothing requires it, nothing re-adds it — it
+follows the organization's email language, and it is never counted as a tracked link.
 
 Unknown variables are left in place, never substituted, and reported in `unknownVariables`.
 They never raise an error — so they are invisible unless you read the render output.
@@ -478,6 +496,42 @@ real address is injected at send time. Check `GET /settings` to know whether it 
 
 ---
 
+## Uploading media
+
+Images referenced by a template's `<img>` tags live in the media library, uploaded through
+`POST /media` — `multipart/form-data`, not JSON, the only endpoint in this API that takes a file.
+
+```bash
+curl -X POST -H "x-api-key: $AGENTMAIL_API_KEY" \
+  -F "file=@./logo.png" \
+  -F "compression=balanced" \
+  "$AGENTMAIL_BASE_URL/api/v1/media"
+```
+
+`compression` is optional (`none`, `light`, `balanced`, `strong` — default `none`) and runs on the
+server, same four levels as the media screen in the app. It never makes a file bigger: if
+re-encoding does not shrink it, the original is stored instead. An animated GIF is never touched.
+
+`GET /media` paginates with `?folder=` and `?search=`, but answers `hasMore` instead of a total —
+the storage behind the library cannot count without listing everything.
+
+**Gotcha:** the ceiling on uploads is the organization's **plan** (a maximum number of media
+files), not the per-key rate limit. Hitting it answers `400`, not `403` — delete a media to free a
+slot, there is nothing to request more of.
+
+A media has no id: delete it by the `path` it was returned with, as a query parameter —
+
+```bash
+curl -X DELETE -H "x-api-key: $AGENTMAIL_API_KEY" \
+  -G "$AGENTMAIL_BASE_URL/api/v1/media" \
+  --data-urlencode "path=organizations/…/media/logo-1703123456789.jpg"
+```
+
+Deleting does not check whether a template or campaign still references the file — a deleted
+media just breaks the `<img>` tag on its next open.
+
+---
+
 ## Importing contacts
 
 `POST /lists/:listId/contacts` — single upsert, **emits side effects**: enrolment event and a
@@ -519,7 +573,7 @@ you model an audience: there is no cross-list identity.
 
 - `recipientCount` — how many subscribers the target hits **right now** (live, never stored)
 - `progress` — `{total, sent, failed, pending, sending, lastSentAt}`
-- `sendingEnabled` — the application-wide kill switch
+- `sendingEnabled` — whether sending is currently enabled across AgentsMail
 
 Read them together:
 
@@ -538,7 +592,7 @@ yet — judging a send by them before the progress completes is meaningless.
 
 ### Why a test was refused
 
-A refused test returns 409 naming the cause: `blocked` (kill switch), `not_allowed`
+A refused test returns 409 naming the cause: `blocked` (sending paused across AgentsMail), `not_allowed`
 (organization), `suppressed` (address on the suppression list after a bounce or complaint),
 `not_sendable` (wrong state), `rate_limited` (test quota).
 
@@ -611,7 +665,7 @@ Ramp up in stages, starting with your most engaged contacts, and **wait 24 hours
 stages**. Bounces land within minutes, but **complaints** arrive hours later. Sending the next
 stage before reading them is flying blind.
 
-Provider thresholds (Amazon SES): bounces 5% (under review) / 10% (suspension), complaints
+Provider thresholds: bounces 5% (under review) / 10% (suspension), complaints
 0.1% / 0.5%. At low volume a single ratio means nothing — one complaint out of 700 is already
 0.14%.
 
