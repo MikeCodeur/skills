@@ -17,7 +17,7 @@
     {
       "name": "agentsmail",
       "source": "./plugins/agentsmail",
-      "description": "Work with AgentsMail — its API (contacts, templates, campaigns, sequences, domains, stats) and the craft of the emails themselves: editable zones, dark mode, deliverability"
+      "description": "Work with AgentsMail — its API (contacts, templates, campaigns, sequences, domains, stats, hosted sign-up pages) and the craft of the emails themselves: editable zones, dark mode, deliverability"
     }
   ]
 }

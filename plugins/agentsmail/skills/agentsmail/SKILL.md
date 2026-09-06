@@ -2,19 +2,20 @@
 name: agentsmail
 description: >
   Work with AgentsMail — its API v1 (lists, contacts, tags, templates,
-  campaigns, automated sequences, sender addresses, sending domains, stats) and
-  the craft of the emails themselves: writing a template a human can edit,
-  editable zones, dark mode, deliverability.
+  campaigns, automated sequences, sender addresses, sending domains, stats,
+  hosted sign-up pages) and the craft of the emails themselves: writing a
+  template a human can edit, editable zones, dark mode, deliverability.
   Use when the user says "AgentsMail", "send a campaign", "import contacts",
   "create an email template", "build an editable template", "add editable zones",
   "build a drip sequence", "check campaign stats", "verify sending domain",
-  "why was my send refused", or when automating email marketing
+  "why was my send refused", "create a sign-up page", "collect subscribers",
+  "hosted subscribe page", "sign-up form", or when automating email marketing
   programmatically.
 license: MIT
 compatibility: Requires curl or any HTTP client. An AgentsMail API key is required.
 metadata:
   author: mikecodeur
-  version: '2.2'
+  version: '2.3'
 ---
 
 # AgentsMail API — Email Marketing Skill
@@ -88,15 +89,15 @@ organization, the key stops working. Rate limit: **120 requests per minute per k
 `blockers` is a **stable, untranslated machine vocabulary** — branch your remediation logic on it,
 never on a message:
 
-| Blocker | Meaning | How to clear it |
-|---------|---------|-----------------|
-| `sending_disabled` | Sending is paused across AgentsMail | Nothing you can fix from the API. Wait for it to be lifted |
-| `organization_not_allowed` | The organization is not cleared to send | Ask AgentsMail support to clear it |
-| `sending_paused` | The email provider **suspended** this organization, usually over a bounce or complaint rate | **Not retryable.** It clears on its own when the provider re-enables sending. Campaign test sends stay available meanwhile — they go out under the shared AgentsMail address |
-| `domain_not_verified` | A domain is declared but its DKIM is not `SUCCESS` | Publish the DNS records, then `verify` |
-| `domain_ownership_unproven` | DKIM is `SUCCESS`, but this organization has not proved it owns the domain | Publish the `_agentmail-challenge` `TXT` record, then `verify` |
-| `sender_not_on_verified_domain` | A domain is verified, but the **default** sender address is not on it (nor on one of its subdomains) | Set or promote an address on the verified domain |
-| `no_sender_identity` | Never blocking on its own — without a sender address, mail falls back to the shared AgentsMail address. It only appears alongside a real blocker, to say the account is bare | Add an address (`POST /settings/identities`) |
+| Blocker                         | Meaning                                                                                                                                                                      | How to clear it                                                                                                                                                              |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sending_disabled`              | Sending is paused across AgentsMail                                                                                                                                          | Nothing you can fix from the API. Wait for it to be lifted                                                                                                                   |
+| `organization_not_allowed`      | The organization is not cleared to send                                                                                                                                      | Ask AgentsMail support to clear it                                                                                                                                           |
+| `sending_paused`                | The email provider **suspended** this organization, usually over a bounce or complaint rate                                                                                  | **Not retryable.** It clears on its own when the provider re-enables sending. Campaign test sends stay available meanwhile — they go out under the shared AgentsMail address |
+| `domain_not_verified`           | A domain is declared but its DKIM is not `SUCCESS`                                                                                                                           | Publish the DNS records, then `verify`                                                                                                                                       |
+| `domain_ownership_unproven`     | DKIM is `SUCCESS`, but this organization has not proved it owns the domain                                                                                                   | Publish the `_agentmail-challenge` `TXT` record, then `verify`                                                                                                               |
+| `sender_not_on_verified_domain` | A domain is verified, but the **default** sender address is not on it (nor on one of its subdomains)                                                                         | Set or promote an address on the verified domain                                                                                                                             |
+| `no_sender_identity`            | Never blocking on its own — without a sender address, mail falls back to the shared AgentsMail address. It only appears alongside a real blocker, to say the account is bare | Add an address (`POST /settings/identities`)                                                                                                                                 |
 
 `sending.setup` reports the same state the account owner reads on screen, as one code instead of a
 list: `status` (e.g. `dns_pending`) and `provisioning`.
@@ -112,77 +113,90 @@ at the last step.
 
 ### Endpoints Overview
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| **Discovery & settings** | | |
-| GET | `/me` | Organization behind the key + sending readiness |
-| GET | `/settings` | Sending identity, opt-in settings and readiness in one read |
-| PATCH | `/settings/sending` | Postal address and non-address sending settings |
-| PATCH | `/settings/optin` | Double opt-in toggle and confirmation email |
-| POST | `/settings/optin/test-send` | Test the confirmation email (real send) |
-| **Sender address book** | | |
-| GET | `/settings/identities` | Every sender address, default first |
-| POST | `/settings/identities` | Add an address — `{senderEmail, senderName?, isDefault?}` |
-| PATCH | `/settings/identities/:identityId` | Edit an address, or promote it with `{"isDefault": true}` |
-| DELETE | `/settings/identities/:identityId` | Remove an address from the book |
-| **Sending domains** | | |
-| GET | `/domains` | Domains, statuses and DNS records to publish |
-| POST | `/domains` | Declare a domain and create its sending identity |
-| GET | `/domains/:domainId` | One domain with its DNS records |
-| POST | `/domains/:domainId/verify` | Force a fresh verification check |
-| DELETE | `/domains/:domainId` | Remove the declaration (keeps the sending identity) |
-| **Lists & contacts** | | |
-| GET | `/lists` | Paginated lists with contact counts |
-| POST | `/lists` | Create a list |
-| GET | `/lists/:listId` | List detail |
-| POST | `/lists/:listId/contacts` | Upsert one contact (emits side effects) |
-| POST | `/lists/:listId/contacts/bulk` | Import up to 500 contacts (emits nothing) |
-| GET | `/contacts?listId=…` | Paginated contacts — `listId` is **required** |
-| GET | `/contacts/:id` | Contact detail |
-| PATCH | `/contacts/:id` | Update `firstName` / `lastName` only |
-| POST | `/contacts/:id/tags` | Attach a tag by name (get-or-create, idempotent) |
-| DELETE | `/contacts/:id/tags/:tagId` | Detach a tag (idempotent) |
-| POST | `/contacts/:id/unsubscribe` | Unsubscribe (idempotent) |
-| POST | `/contacts/:id/resubscribe` | Resubscribe (idempotent) |
-| POST | `/contacts/:id/topics/:topicId/opt-out` | Stop one topic without unsubscribing the contact |
-| POST | `/contacts/:id/topics/:topicId/resubscribe` | Re-enable one topic and preserve preference history |
-| **Tags** | | |
-| GET | `/tags` | Tags with contact counts, `?search=` supported |
-| POST | `/tags` | Create a tag (names are unique, case-insensitive) |
-| **Templates** | | |
-| GET | `/templates` | Paginated templates |
-| POST | `/templates` | Create a template |
-| GET | `/templates/:id` | Template detail |
-| PATCH | `/templates/:id` | Update name, default subject, content |
-| DELETE | `/templates/:id` | Delete a template |
-| POST | `/templates/:id/test-send` | Send a test (real send) |
-| **Media** | | |
-| GET | `/media` | Paginated media library, `?folder=` and `?search=` supported |
-| POST | `/media` | Upload an image (`multipart/form-data`), with optional `compression` |
-| DELETE | `/media?path=…` | Remove a media by its storage `path` — no reference check |
-| **Campaigns** | | |
-| GET | `/campaigns` | Paginated campaigns, `?status=` and `?search=` |
-| POST | `/campaigns` | Create a draft campaign |
-| GET | `/campaigns/:id` | Campaign + recipient count + send progress |
-| PATCH | `/campaigns/:id` | Edit a **draft** campaign |
-| POST | `/campaigns/:id/test-send` | Send a test (real send) |
-| POST | `/campaigns/:id/send` | Trigger or schedule the send |
-| GET | `/campaigns/:id/stats` | Delivery, opens, clicks, unsubscribes |
-| **Sequences** | | *20 routes — see the Sequences section* |
-| GET / POST | `/sequences` | List sequences / create one **and** its version 1 draft |
-| GET / PATCH / DELETE | `/sequences/:id` | Detail / rename, activate, pause / delete |
-| GET | `/sequences/:id/enrollments` | Who is walking the journey, every status |
-| GET / POST | `/sequences/:id/versions` | Version history / open a draft |
-| PATCH / DELETE | `/sequences/:id/versions/:vId` | Change a draft's trigger / discard a draft |
-| POST | `/sequences/:id/versions/:vId/publish` | Publish — **the graph is validated here** |
-| POST | `/sequences/:id/versions/:vId/rollback` | Republish an old version as a **new** one |
-| GET / POST | `/sequences/:id/versions/:vId/nodes` | Read nodes / add one to a draft |
-| PATCH / DELETE | `/sequences/:id/versions/:vId/nodes/:nId` | Edit a node / remove it, stitching the journey |
-| POST | `/sequences/:id/versions/:vId/nodes/:nId/move` | Move a node one step up or down |
-| GET / POST | `/sequences/:id/versions/:vId/edges` | Read wires / wire two nodes |
-| DELETE | `/sequences/:id/versions/:vId/edges/:eId` | Unwire two nodes |
-| **Rendering** | | |
-| POST | `/render` | Render HTML with warnings — **no side effects** |
+| Method                   | Endpoint                                       | Description                                                             |
+| ------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| **Discovery & settings** |                                                |                                                                         |
+| GET                      | `/me`                                          | Organization behind the key + sending readiness                         |
+| GET                      | `/settings`                                    | Sending identity, opt-in settings and readiness in one read             |
+| PATCH                    | `/settings/sending`                            | Postal address and non-address sending settings                         |
+| PATCH                    | `/settings/optin`                              | Double opt-in toggle and confirmation email                             |
+| POST                     | `/settings/optin/test-send`                    | Test the confirmation email (real send)                                 |
+| **Sender address book**  |                                                |                                                                         |
+| GET                      | `/settings/identities`                         | Every sender address, default first                                     |
+| POST                     | `/settings/identities`                         | Add an address — `{senderEmail, senderName?, isDefault?}`               |
+| PATCH                    | `/settings/identities/:identityId`             | Edit an address, or promote it with `{"isDefault": true}`               |
+| DELETE                   | `/settings/identities/:identityId`             | Remove an address from the book                                         |
+| **Sending domains**      |                                                |                                                                         |
+| GET                      | `/domains`                                     | Domains, statuses and DNS records to publish                            |
+| POST                     | `/domains`                                     | Declare a domain and create its sending identity                        |
+| GET                      | `/domains/:domainId`                           | One domain with its DNS records                                         |
+| POST                     | `/domains/:domainId/verify`                    | Force a fresh verification check                                        |
+| DELETE                   | `/domains/:domainId`                           | Remove the declaration (keeps the sending identity)                     |
+| **Lists & contacts**     |                                                |                                                                         |
+| GET                      | `/lists`                                       | Paginated lists with contact counts                                     |
+| POST                     | `/lists`                                       | Create a list                                                           |
+| GET                      | `/lists/:listId`                               | List detail                                                             |
+| POST                     | `/lists/:listId/contacts`                      | Upsert one contact (emits side effects)                                 |
+| POST                     | `/lists/:listId/contacts/bulk`                 | Import up to 500 contacts (emits nothing)                               |
+| GET                      | `/contacts?listId=…`                           | Paginated contacts — `listId` is **required**                           |
+| GET                      | `/contacts/:id`                                | Contact detail                                                          |
+| PATCH                    | `/contacts/:id`                                | Update `firstName` / `lastName` only                                    |
+| POST                     | `/contacts/:id/tags`                           | Attach a tag by name (get-or-create, idempotent)                        |
+| DELETE                   | `/contacts/:id/tags/:tagId`                    | Detach a tag (idempotent)                                               |
+| POST                     | `/contacts/:id/unsubscribe`                    | Unsubscribe (idempotent)                                                |
+| POST                     | `/contacts/:id/resubscribe`                    | Resubscribe (idempotent)                                                |
+| POST                     | `/contacts/:id/topics/:topicId/opt-out`        | Stop one topic without unsubscribing the contact                        |
+| POST                     | `/contacts/:id/topics/:topicId/resubscribe`    | Re-enable one topic and preserve preference history                     |
+| **Tags**                 |                                                |                                                                         |
+| GET                      | `/tags`                                        | Tags with contact counts, `?search=` supported                          |
+| POST                     | `/tags`                                        | Create a tag (names are unique, case-insensitive)                       |
+| **Topics**               |                                                | _the `topicId` the two opt-out routes above require comes from here_    |
+| GET                      | `/topics`                                      | Every editorial topic — no pagination, no `?search=`                    |
+| POST                     | `/topics`                                      | Create a topic (names are unique, case-insensitive)                     |
+| GET                      | `/topics/:topicId`                             | One topic **with its usage**: refusals, campaigns, sequences            |
+| PATCH                    | `/topics/:topicId`                             | Rename it — nothing references the name, so nothing else moves          |
+| DELETE                   | `/topics/:topicId`                             | Delete it — `409` while a campaign or a sequence carries it             |
+| **Templates**            |                                                |                                                                         |
+| GET                      | `/templates`                                   | Paginated templates                                                     |
+| POST                     | `/templates`                                   | Create a template                                                       |
+| GET                      | `/templates/:id`                               | Template detail                                                         |
+| PATCH                    | `/templates/:id`                               | Update name, default subject, content                                   |
+| DELETE                   | `/templates/:id`                               | Delete a template                                                       |
+| POST                     | `/templates/:id/test-send`                     | Send a test (real send)                                                 |
+| **Media**                |                                                |                                                                         |
+| GET                      | `/media`                                       | Paginated media library, `?folder=` and `?search=` supported            |
+| POST                     | `/media`                                       | Upload an image (`multipart/form-data`), with optional `compression`    |
+| DELETE                   | `/media?path=…`                                | Remove a media by its storage `path` — no reference check               |
+| **Campaigns**            |                                                |                                                                         |
+| GET                      | `/campaigns`                                   | Paginated campaigns, `?status=` and `?search=`                          |
+| POST                     | `/campaigns`                                   | Create a draft campaign                                                 |
+| GET                      | `/campaigns/:id`                               | Campaign + recipient count + send progress                              |
+| PATCH                    | `/campaigns/:id`                               | Edit a **draft** campaign                                               |
+| POST                     | `/campaigns/:id/test-send`                     | Send a test (real send)                                                 |
+| POST                     | `/campaigns/:id/send`                          | Trigger or schedule the send                                            |
+| GET                      | `/campaigns/:id/stats`                         | Delivery, opens, clicks, unsubscribes                                   |
+| **Sequences**            |                                                | _20 routes — see the Sequences section_                                 |
+| GET / POST               | `/sequences`                                   | List sequences / create one **and** its version 1 draft                 |
+| GET / PATCH / DELETE     | `/sequences/:id`                               | Detail / rename, activate, pause / delete                               |
+| GET                      | `/sequences/:id/enrollments`                   | Who is walking the journey, every status                                |
+| GET / POST               | `/sequences/:id/versions`                      | Version history / open a draft                                          |
+| PATCH / DELETE           | `/sequences/:id/versions/:vId`                 | Change a draft's trigger / discard a draft                              |
+| POST                     | `/sequences/:id/versions/:vId/publish`         | Publish — **the graph is validated here**                               |
+| POST                     | `/sequences/:id/versions/:vId/rollback`        | Republish an old version as a **new** one                               |
+| GET / POST               | `/sequences/:id/versions/:vId/nodes`           | Read nodes / add one to a draft                                         |
+| PATCH / DELETE           | `/sequences/:id/versions/:vId/nodes/:nId`      | Edit a node / remove it, stitching the journey                          |
+| POST                     | `/sequences/:id/versions/:vId/nodes/:nId/move` | Move a node one step up or down                                         |
+| GET / POST               | `/sequences/:id/versions/:vId/edges`           | Read wires / wire two nodes                                             |
+| DELETE                   | `/sequences/:id/versions/:vId/edges/:eId`      | Unwire two nodes                                                        |
+| **Sign-up pages**        |                                                | _hosted pages that collect subscribers — see the Sign-up pages section_ |
+| GET                      | `/signup-pages`                                | Paginated sign-up pages, `?status=` and `?search=`                      |
+| POST                     | `/signup-pages`                                | Create one — **a draft unless you pass `status`**                       |
+| GET                      | `/signup-pages/:id`                            | One page with everything it renders from                                |
+| PATCH                    | `/signup-pages/:id`                            | Edit it, or publish it with `{"status": "published"}`                   |
+| DELETE                   | `/signup-pages/:id`                            | Delete it — the address stops answering at once                         |
+| GET                      | `/signup-page-templates`                       | The theme catalogue, read only, same for every key                      |
+| **Rendering**            |                                                |                                                                         |
+| POST                     | `/render`                                      | Render HTML with warnings — **no side effects**                         |
 
 ### Pagination
 
@@ -194,16 +208,16 @@ to the default instead of failing. Responses carry a `pagination` object next to
 Success: `{"success": true, "data": …, "pagination": …}`
 Failure: `{"error": "…", "details": [ …field-level issues… ]}`
 
-| Code | When |
-|------|------|
-| 200 / 201 / 202 | read or upsert / creation / send accepted for background processing |
-| 400 | validation failed — `details` carries the field-level issues |
-| 401 | missing or invalid key, or owner no longer a member |
-| 403 | valid key, insufficient organization role |
-| 404 | resource missing, **owned by another organization**, or **belonging to another version** (sequences) — never 403 |
-| 409 | state conflict (already sent, incomplete configuration, test refused) |
-| 413 | bulk batch over 500 contacts; the body names the `limit` |
-| 429 | per-key rate limit exceeded |
+| Code            | When                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 200 / 201 / 202 | read or upsert / creation / send accepted for background processing                                              |
+| 400             | validation failed — `details` carries the field-level issues                                                     |
+| 401             | missing or invalid key, or owner no longer a member                                                              |
+| 403             | valid key, insufficient organization role                                                                        |
+| 404             | resource missing, **owned by another organization**, or **belonging to another version** (sequences) — never 403 |
+| 409             | state conflict (already sent, incomplete configuration, test refused)                                            |
+| 413             | bulk batch over 500 contacts; the body names the `limit`                                                         |
+| 429             | per-key rate limit exceeded                                                                                      |
 
 **The 404 is a trap.** It does not mean "does not exist", it means "not yours". The API
 deliberately refuses to confirm that an id exists to a caller who has no right to it. On
@@ -213,10 +227,10 @@ the path that leads to it.**
 
 ### Permissions
 
-| Operation | Required |
-|-----------|----------|
-| Reads | membership in the key's organization |
-| Writes | organization role **ADMIN** or above |
+| Operation                  | Required                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| Reads                      | membership in the key's organization                            |
+| Writes                     | organization role **ADMIN** or above                            |
 | `POST /campaigns/:id/send` | organization ADMIN, **and API sending enabled for the account** |
 
 Triggering a real send over the API is not open to every account yet. A `404` on `send` can
@@ -249,7 +263,7 @@ curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
 
 # 5. Create the campaign (content is COPIED from the template)
 curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"name":"August","subject":"Hello","listId":"<uuid>","templateId":"<uuid>"}' \
+  -d '{"name":"August","subject":"Hello","preheader":"Three new things this month","listId":"<uuid>","templateId":"<uuid>"}' \
   "$BASE/campaigns"
 
 # 6. Test in a real inbox
@@ -277,8 +291,9 @@ Scheduling: `POST /campaigns/:id/send` accepts `{"scheduledAt": "2026-01-01T09:0
 ISO 8601 **with offset**, at least 60 seconds in the future → `202 {"status": "scheduled"}`.
 Without a body → `202 {"status": "send_requested"}`.
 
-Only `draft` and `scheduled` campaigns can be sent. A `sent` campaign returns 409 and is never
-replayed — duplicate it instead.
+Only `draft` and `scheduled` campaigns can be sent. A `paused` campaign keeps its
+`scheduledAt` but returns 409 until it is resumed in the app. A `sent` campaign returns 409 and is
+never replayed — duplicate it instead.
 
 ---
 
@@ -298,7 +313,7 @@ configuration error. The loop is designed to be automated:
 organization** owns it. A domain can therefore sit at `dkimStatus: SUCCESS` and still block with
 `domain_ownership_unproven`. And once any domain is verified, the default sender address must be on
 it — otherwise `sender_not_on_verified_domain` blocks the send. Without that check the provider
-accepts the batch and then fails every message with *"Email address is not verified"*, with nothing
+accepts the batch and then fails every message with _"Email address is not verified"_, with nothing
 in the product explaining why.
 
 `sesUnavailable: true` on a read means you are seeing the last known state, dated by
@@ -315,12 +330,12 @@ organization may have declared the same domain, and a verified identity is expen
 An organization registers **several** verified sender addresses and marks one as the default.
 There is no single sender address hanging off the organization any more.
 
-| Route | Role | Effect |
-|-------|------|--------|
-| `GET /settings/identities` | member | The whole book, default first |
-| `POST /settings/identities` | admin | Add an address — `{senderEmail, senderName?, isDefault?}` |
-| `PATCH /settings/identities/:identityId` | admin | Change the address or display name, or promote it with `{"isDefault": true}` |
-| `DELETE /settings/identities/:identityId` | admin | Remove an address from the book |
+| Route                                     | Role   | Effect                                                                       |
+| ----------------------------------------- | ------ | ---------------------------------------------------------------------------- |
+| `GET /settings/identities`                | member | The whole book, default first                                                |
+| `POST /settings/identities`               | admin  | Add an address — `{senderEmail, senderName?, isDefault?}`                    |
+| `PATCH /settings/identities/:identityId`  | admin  | Change the address or display name, or promote it with `{"isDefault": true}` |
+| `DELETE /settings/identities/:identityId` | admin  | Remove an address from the book                                              |
 
 Rules that govern the book:
 
@@ -352,11 +367,11 @@ organization keeps inheriting future default improvements — that is what the r
 
 ### Variables
 
-A closed vocabulary of ten names:
+A closed vocabulary of eleven names:
 
 `{{firstName}}` · `{{lastName}}` · `{{email}}` · `{{unsubscribeUrl}}` · `{{currentYear}}` ·
 `{{today}}` · `{{postalAddress}}` · `{{topicOptOutUrl}}` (only on a send carrying a topic) ·
-`{{confirmationUrl}}` (opt-in confirmation template only) · `{{poweredBy}}`
+`{{confirmationUrl}}` (opt-in confirmation template only) · `{{poweredBy}}` · `{{preheader}}`
 
 `{{today}}` and `{{currentYear}}` are computed at render time from the organization's time zone and
 email language; `{{today}}` in a sequence resolves when the step actually sends. Values passed in
@@ -365,10 +380,34 @@ are ignored: the server decides them. `{{topicOptOutUrl}}` renders only when the
 sequence carries a topic; shipping it without one makes the send **refused**, so leave it out of a
 generic template.
 
+To give a send a topic: resolve or create one with `GET /api/v1/topics` or `POST /api/v1/topics`,
+then pass its id as `topicId` — on `POST /api/v1/campaigns`, on
+`PATCH /api/v1/campaigns/:id`, or on `PATCH /api/v1/sequences/:id`. A sequence takes its topic
+after creation only: `POST /api/v1/sequences` does not accept the field. `topicId: null` clears it,
+and that removal is refused while a published step still carries the shortcode.
+
 `{{poweredBy}}` is the only one that resolves to **markup**, not text: a small, discreet
 "Sent with AgentsMail.io" link that inherits the surrounding colour. Put it on its own line in a
 footer, never inside an attribute. It is optional — nothing requires it, nothing re-adds it — it
 follows the organization's email language, and it is never counted as a tracked link.
+
+`{{preheader}}` receives the **preview text** — the line the inbox shows after the subject, written
+on the campaign (`preheader`), on a `send_email` step, or passed to `/render`. Put it in a hidden
+block right after `<body>`, carrying `data-skip-in-text="true"` so it stays out of the plain-text
+version:
+
+```html
+<div
+  data-skip-in-text="true"
+  style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;color:#f4f4f4;"
+>
+  {{preheader}}&zwnj;&nbsp;&zwnj;&nbsp;
+</div>
+```
+
+Nothing is injected for you: a preview text sent to a document without the tag is simply lost, and
+the render says so with `missing_preheader_shortcode`. The reverse — the tag with no preview text —
+leaves the block empty and is perfectly fine.
 
 Unknown variables are left in place, never substituted, and reported in `unknownVariables`.
 They never raise an error — so they are invisible unless you read the render output.
@@ -396,7 +435,10 @@ Mark a container with `data-editable="<name>"`. The container **is** the zone, i
 **is** the boundary. Nothing is stored: the list is derived from the HTML on every read.
 
 ```html
-<td data-editable="body" style="padding:24px 40px; font-size:16px; line-height:1.6; color:#333333">
+<td
+  data-editable="body"
+  style="padding:24px 40px; font-size:16px; line-height:1.6; color:#333333"
+>
   <p style="margin:0 0 16px 0">Hi {{firstName}},</p>
   <p style="margin:0">Write your message here.</p>
 </td>
@@ -419,9 +461,15 @@ the zone contain a `<table>`, so it is refused. Mark the `<a>` instead:
 
 ```html
 <div style="padding:0 32px 30px">
-  <table role="presentation"><tr><td style="background:#0f9d63; border-radius:7px">
-    <a data-editable="cta" href="https://example.com" style="…">Read more</a>
-  </td></tr></table>
+  <table role="presentation">
+    <tr>
+      <td style="background:#0f9d63; border-radius:7px">
+        <a data-editable="cta" href="https://example.com" style="…"
+          >Read more</a
+        >
+      </td>
+    </tr>
+  </table>
 </div>
 ```
 
@@ -454,7 +502,7 @@ a signature, a two-column row. That is what makes it reusable rather than a one-
 
 **Never declare `<meta name="color-scheme">` without shipping the matching rules.** The
 declaration tells the mail client "I handle dark mode myself", so it stops applying its own
-coherent inversion — which flips background *and* text together. With no
+coherent inversion — which flips background _and_ text together. With no
 `@media (prefers-color-scheme: dark)` block behind it, the background darkens and the text stays
 dark. **The tag alone is worse than nothing.**
 
@@ -483,16 +531,22 @@ templates are full of `style="margin:0 !important;…"`.
 
 ### Rendering before sending
 
-`POST /render` takes `{templateId?, content?, subject?, variables?}` — `templateId` **or**
-`content`, never neither. A supplied `content` wins, which lets you try an edit before saving it.
+`POST /render` takes `{templateId?, content?, subject?, preheader?, variables?}` — `templateId`
+**or** `content`, never neither. A supplied `content` wins, which lets you try an edit before
+saving it.
 
 Returns `{html, text, subject, unknownVariables, warnings}`. Warning vocabulary:
 `missing_postal_address`, `dark_mode_contrast_corrected`, `dark_mode_contrast_unverified`,
-`dark_mode_declaration_removed`.
+`dark_mode_declaration_removed`, `missing_preheader_shortcode`.
 
 **Gotcha:** `/render` does not inject the organization's postal address, so
 `missing_postal_address` **always** appears on this endpoint. It is not a template defect — the
 real address is injected at send time. Check `GET /settings` to know whether it is configured.
+
+**`missing_preheader_shortcode`** means the opposite kind of miss: you passed a `preheader` and the
+HTML carries no `{{preheader}}` to receive it. Nothing is injected into the document — add the
+hidden block to the template, or drop the preview text. The send is never refused for it: the inbox
+just falls back to the first visible text of the email.
 
 ---
 
@@ -538,14 +592,21 @@ media just breaks the `<img>` tag on its next open.
 double opt-in confirmation email when enabled. Returns 200 (not 201): it is an upsert.
 
 `POST /lists/:listId/contacts/bulk` — **emits nothing**: no email, no event, whatever the
-configuration. `doubleOptIn` is explicitly *rejected* here rather than ignored, so no caller ever
+configuration. `doubleOptIn` is explicitly _rejected_ here rather than ignored, so no caller ever
 believes 500 confirmations went out.
 
 ```json
 {
   "contacts": [
-    {"email": "a@example.com", "firstName": "Ada", "lastName": "L", "tags": ["vip"],
-     "status": "subscribed", "optinAt": "2025-03-01T10:00:00Z", "optinIp": "203.0.113.4"}
+    {
+      "email": "a@example.com",
+      "firstName": "Ada",
+      "lastName": "L",
+      "tags": ["vip"],
+      "status": "subscribed",
+      "optinAt": "2025-03-01T10:00:00Z",
+      "optinIp": "203.0.113.4"
+    }
   ],
   "tags": ["import-march"]
 }
@@ -582,7 +643,7 @@ Read them together:
 - `sending: 0` with `pending` remaining on a `sending` campaign → it is stuck, not slow.
   `lastSentAt` is the only signal that separates the two.
 
-Campaign statuses: `draft`, `scheduled`, `sending`, `sent`, `failed`.
+Campaign statuses: `draft`, `scheduled`, `paused`, `sending`, `sent`, `failed`.
 
 `GET /campaigns/:id/stats` returns `sent`, `delivered`, `bounced`, `uniqueOpens`, `openRate`,
 `uniqueClicks`, `clickRate`, `unsubscribed`, `unsubscribeRate`, `clicksByLink`, `clicksOverTime`.
@@ -607,12 +668,12 @@ a tag, call a webhook, stop.
 
 **Four objects:**
 
-| Object | What it is |
-|--------|-----------|
+| Object       | What it is                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
 | **Sequence** | The journey's identity: a name, a status (`active` / `paused`), and a pointer to the version currently running |
-| **Version** | A **snapshot** of the journey, with its trigger. A `draft` is editable; a `published` one never changes again |
-| **Node** | One step: `send_email`, `wait`, `add_tag`, `remove_tag`, `end_sequence`, `webhook` |
-| **Edge** | A wire from one node to the next. Adding a node wires it for you; edges exist so you can rewire |
+| **Version**  | A **snapshot** of the journey, with its trigger. A `draft` is editable; a `published` one never changes again  |
+| **Node**     | One step: `send_email`, `wait`, `add_tag`, `remove_tag`, `end_sequence`, `webhook`                             |
+| **Edge**     | A wire from one node to the next. Adding a node wires it for you; edges exist so you can rewire                |
 
 Two consequences run through everything:
 
@@ -659,6 +720,73 @@ the only way to see a contact that finished or dropped out.
 
 ---
 
+## Sign-up pages — collecting subscribers without code
+
+A sign-up page is a page AgentsMail hosts for you. It carries a form, it points at **one** list,
+and a visitor who submits it becomes a contact on that list. No key travels to the browser: the
+page posts to its own address, and the organization behind it comes from the address, not from a
+header. That is the whole point — an API key can do far too much to sit in a public page.
+
+### The shortest path
+
+```bash
+# 1. Take a theme — the catalogue is read only and the same for every key
+curl -s -H "x-api-key: $AGENTMAIL_API_KEY" \
+  "$AGENTMAIL_BASE_URL/api/v1/signup-page-templates"
+
+# 2. Create the page from that theme's `content`, still a draft
+curl -s -X POST -H "x-api-key: $AGENTMAIL_API_KEY" -H "Content-Type: application/json" \
+  "$AGENTMAIL_BASE_URL/api/v1/signup-pages" \
+  -d '{
+    "name": "Weekly letter",
+    "slug": "weekly-letter",
+    "listId": "<a list of yours>",
+    "content": "<the theme content, or your own HTML carrying {{form}}>",
+    "heroTitle": "Subscribe to our newsletter",
+    "submitLabel": "Subscribe",
+    "successMessage": "Thanks — check your inbox."
+  }'
+
+# 3. Publish it
+curl -s -X PATCH -H "x-api-key: $AGENTMAIL_API_KEY" -H "Content-Type: application/json" \
+  "$AGENTMAIL_BASE_URL/api/v1/signup-pages/<id>" -d '{"status": "published"}'
+```
+
+The public address is `/public/{organization slug}/subscribe/{slug}`. The organization slug is the
+one `GET /me` returns.
+
+### What the HTML must carry
+
+`content` is your page. It has to contain **`{{form}}`** — that is where AgentsMail injects the
+real form, and a document without it is refused at `400`. Four other placeholders are optional:
+`{{heroTitle}}`, `{{heroSubtitle}}`, `{{organizationName}}` and `{{poweredBy}}`. Delete
+`{{poweredBy}}` from the HTML and the attribution disappears; that is the only way to remove it.
+
+Style the form with the classes it renders: `sp-field`, `sp-label`, `sp-input`, `sp-email`,
+`sp-first-name`, `sp-last-name`, `sp-submit`, `sp-legal`, `sp-message`. Starting from a theme
+saves you all of this.
+
+### Two things that will cost you an afternoon otherwise
+
+**A published page can still answer a not-found page.** Publishing a sign-up page is _two_
+switches, not one: the page's own `status`, and a setting on the organization that allows hosted
+sign-up pages at all. The second is **off by default**, and it is **neither readable nor writable
+through the API** — `GET /settings` does not carry it. If a page you published shows a not-found
+page, do not debug the API: open the organization settings screen and turn hosted sign-up pages on.
+Nothing in an API response will tell you this.
+
+**A draft is indistinguishable from a page that does not exist.** So is a page belonging to another
+organization, and so is a list that is not yours: all of them answer `404`. That is deliberate —
+a different answer would let anyone map what an organization owns by trying addresses.
+
+### After a sign-up
+
+The contact lands on the page's list, and the organization's opt-in setting decides the rest: with
+double opt-in on, the contact stays pending until they confirm by email; with it off, they are
+subscribed at once. The page does not override it, and there is no field to ask it to.
+
+---
+
 ## Deliverability
 
 Ramp up in stages, starting with your most engaged contacts, and **wait 24 hours between
@@ -676,14 +804,14 @@ mailed again, and that is intentional.
 
 ## Limits
 
-| What | Value |
-|------|-------|
-| API requests | 120 / minute / key |
-| Contacts per `bulk` call | 500 (413 above) |
-| Tags applied to a batch | 5 |
-| Test sends | 10 / hour / user, campaigns and templates combined |
-| Pagination `limit` | 100 |
-| Minimum scheduling lead time | 60 seconds |
+| What                         | Value                                              |
+| ---------------------------- | -------------------------------------------------- |
+| API requests                 | 120 / minute / key                                 |
+| Contacts per `bulk` call     | 500 (413 above)                                    |
+| Tags applied to a batch      | 5                                                  |
+| Test sends                   | 10 / hour / user, campaigns and templates combined |
+| Pagination `limit`           | 100                                                |
+| Minimum scheduling lead time | 60 seconds                                         |
 
 Resource ceilings — verifiable domains, contacts, monthly sends — depend on the organization's
 plan. Exceeding one answers 400 and names the ceiling.
@@ -692,22 +820,22 @@ plan. Exceeding one answers 400 and names the ceiling.
 
 ## Common mistakes
 
-| Mistake | What actually happens |
-|---------|----------------------|
-| Building the campaign first, checking readiness last | The send is refused after all the work. Call `GET /me` first. |
-| Reading a `404` as "deleted" | It also means "another organization's resource" or "not permitted". |
-| Editing the template to fix a created campaign | The campaign holds a copy. Patch the campaign. |
-| Ignoring `unsupportedTags` | Raw `*|MERGE|*` tags ship to real inboxes. |
-| Trusting `missing_postal_address` from `/render` | It is always raised there. Check `GET /settings`. |
-| Polling a campaign until `sent` | With `sendingEnabled: false` it never converges. |
-| Sending the whole batch again after partial failures | Use `errors[].index` to replay only failed rows. |
-| Treating `test-send` as a dry run | It is a real send, with real quota and a real inbox. |
-| Bulk-importing contacts to trigger a sequence | Bulk emits nothing, so it enrols nobody. Use the single upsert, or tag afterwards. |
-| Retrying on `sending_paused` | The provider suspended the organization. Retrying never clears it. |
-| Verifying DKIM and stopping there | Ownership is a second, separate condition (`_agentmail-challenge` `TXT`). |
-| Expecting one unsubscribe to cover a person | A contact belongs to one list. The same person in two lists unsubscribes twice. |
-| Editing a published sequence version | Published versions are frozen. Open a draft, change it, publish it. |
-| Shipping a template with no `data-editable` | The writer gets a raw HTML textarea and no visual editing at all. |
-| Marking the `<div>` that wraps a button's `<table>` | The zone contains a `<table>`, so it is refused whole. Mark the `<a>`. |
-| Putting `{{unsubscribeUrl}}` inside a zone | It becomes deletable from the editor, and saving is refused when it disappears. |
-| Declaring one zone and expecting a block library | A template offers as many block types as it declares zones. Ship one exemplar of each. |
+| Mistake                                              | What actually happens                                                                  |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Building the campaign first, checking readiness last | The send is refused after all the work. Call `GET /me` first.                          |
+| Reading a `404` as "deleted"                         | It also means "another organization's resource" or "not permitted".                    |
+| Editing the template to fix a created campaign       | The campaign holds a copy. Patch the campaign.                                         |
+| Ignoring `unsupportedTags`                           | Raw `*                                                                                 | MERGE | *` tags ship to real inboxes. |
+| Trusting `missing_postal_address` from `/render`     | It is always raised there. Check `GET /settings`.                                      |
+| Polling a campaign until `sent`                      | With `sendingEnabled: false` it never converges.                                       |
+| Sending the whole batch again after partial failures | Use `errors[].index` to replay only failed rows.                                       |
+| Treating `test-send` as a dry run                    | It is a real send, with real quota and a real inbox.                                   |
+| Bulk-importing contacts to trigger a sequence        | Bulk emits nothing, so it enrols nobody. Use the single upsert, or tag afterwards.     |
+| Retrying on `sending_paused`                         | The provider suspended the organization. Retrying never clears it.                     |
+| Verifying DKIM and stopping there                    | Ownership is a second, separate condition (`_agentmail-challenge` `TXT`).              |
+| Expecting one unsubscribe to cover a person          | A contact belongs to one list. The same person in two lists unsubscribes twice.        |
+| Editing a published sequence version                 | Published versions are frozen. Open a draft, change it, publish it.                    |
+| Shipping a template with no `data-editable`          | The writer gets a raw HTML textarea and no visual editing at all.                      |
+| Marking the `<div>` that wraps a button's `<table>`  | The zone contains a `<table>`, so it is refused whole. Mark the `<a>`.                 |
+| Putting `{{unsubscribeUrl}}` inside a zone           | It becomes deletable from the editor, and saving is refused when it disappears.        |
+| Declaring one zone and expecting a block library     | A template offers as many block types as it declares zones. Ship one exemplar of each. |
