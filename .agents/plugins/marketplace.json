@@ -1,0 +1,20 @@
+{
+  "name": "mikecodeur-skills",
+  "interface": {
+    "displayName": "Mikecodeur Skills"
+  },
+  "plugins": [
+    {
+      "name": "villaslot",
+      "source": {
+        "source": "local",
+        "path": "./plugins/villaslot"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

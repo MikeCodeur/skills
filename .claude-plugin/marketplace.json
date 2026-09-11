@@ -18,6 +18,11 @@
       "name": "agentsmail",
       "source": "./plugins/agentsmail",
       "description": "Work with AgentsMail — its API (contacts, templates, campaigns, sequences, domains, stats, hosted sign-up pages) and the craft of the emails themselves: editable zones, dark mode, deliverability"
+    },
+    {
+      "name": "villaslot",
+      "source": "./plugins/villaslot",
+      "description": "Operate VillaSlot API v1: villas, hourly rates, availability, bookings, customers and imports with organization-scoped API keys."
     }
   ]
 }

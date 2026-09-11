@@ -1,0 +1,8 @@
+{
+  "name": "villaslot",
+  "version": "1.1.0",
+  "description": "Operate VillaSlot API v1: villas, hourly rates, availability, bookings, customers and imports with organization-scoped API keys.",
+  "author": {
+    "name": "MikeCodeur"
+  }
+}

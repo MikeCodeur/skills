@@ -9,6 +9,7 @@ Agent Skills for YouTube creators and developers. Compatible with any agent that
 | [youthumb-prompts](./youthumb-prompts/) | Generate optimized prompts for YouThumb.ai YouTube thumbnails |
 | [youthumb-api](./youthumb-api/) | Interact with the YouThumb.ai API — upload assets, create projects, generate thumbnails |
 | [agentsmail](./agentsmail/) | Work with AgentsMail — its API (contacts, templates, campaigns, sequences, sending domains, stats) and the craft of the emails themselves: editable zones, dark mode, deliverability |
+| [villaslot](./villaslot/) | VillaSlot API v1 — villas, hourly rates, availability, bookings, customers and reliable imports |
 
 ## Compatibility
 
@@ -65,3 +66,12 @@ Made by [@MikeCodeur](https://youtube.com/@MikeCodeur_) — YouTuber, dev, and A
 ## License
 
 MIT
+
+## VillaSlot packaging
+
+The standalone skill lives in `villaslot/`. The plugin in `plugins/villaslot/`
+contains the same skill and references, with Claude Code and Codex manifests.
+The Claude marketplace is `.claude-plugin/marketplace.json`; the Codex marketplace
+is `.agents/plugins/marketplace.json`. Both register the same VillaSlot plugin.
+When updating the skill, keep both copies identical. Credentials are supplied at
+runtime and are never part of the package.
