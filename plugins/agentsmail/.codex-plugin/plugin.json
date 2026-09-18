@@ -1,0 +1,18 @@
+{
+  "name": "agentsmail",
+  "version": "1.4.0",
+  "description": "Work with AgentsMail API v1: contacts, templates, campaigns with preview text, sequences, sending domains and sign-up pages; editable email zones, dark mode and deliverability.",
+  "author": {
+    "name": "MikeCodeur"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AgentsMail",
+    "shortDescription": "Manage email marketing through the AgentsMail API.",
+    "longDescription": "Work with AgentsMail API v1: contacts, templates, campaigns with preview text, sequences, sending domains and sign-up pages; editable email zones, dark mode and deliverability.",
+    "developerName": "MikeCodeur",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use AgentsMail to prepare an email campaign with preview text."
+  }
+}

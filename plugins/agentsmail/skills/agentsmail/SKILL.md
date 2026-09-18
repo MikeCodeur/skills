@@ -12,13 +12,14 @@ description: >
   "hosted subscribe page", "sign-up form", or when automating email marketing
   programmatically.
 license: MIT
-compatibility: Requires curl or any HTTP client. An AgentsMail API key is required.
 metadata:
   author: mikecodeur
-  version: '2.3'
+  version: '2.4'
 ---
 
 # AgentsMail API — Email Marketing Skill
+
+Requires curl or any HTTP client and an AgentsMail API key.
 
 Automate email marketing through the AgentsMail REST API: build audiences, write templates,
 render them safely, send campaigns, run automated sequences, and read results — without touching
@@ -263,7 +264,7 @@ curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
 
 # 5. Create the campaign (content is COPIED from the template)
 curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"name":"August","subject":"Hello","preheader":"Three new things this month","listId":"<uuid>","templateId":"<uuid>"}' \
+  -d '{"name":"August","subject":"Hello","previewText":"Timely m’a bloqué mes paiements Stripe pendant 5 jours.","listId":"<uuid>","templateId":"<uuid>"}' \
   "$BASE/campaigns"
 
 # 6. Test in a real inbox
@@ -365,13 +366,24 @@ organization keeps inheriting future default improvements — that is what the r
 
 ## Writing templates
 
+### API compatibility
+
+`previewText` and `{{previewText}}` require API support for these aliases. If campaign responses do
+not yet expose `previewText`, use `preheader` and `{{preheader}}` instead, including for `/render`.
+After creating or updating a campaign, check that the returned preview value matches the text you
+requested; a successful response alone does not prove an unrecognized field was saved.
+
+Organization-only handling of the legacy `doubleOptIn` flag also depends on the API rollout.
+Omit that flag and read the organization's sign-up setting; older API behavior may still honor
+an explicit `true`. Check the returned contact status rather than assuming confirmation was skipped.
+
 ### Variables
 
-A closed vocabulary of eleven names:
+A closed vocabulary:
 
 `{{firstName}}` · `{{lastName}}` · `{{email}}` · `{{unsubscribeUrl}}` · `{{currentYear}}` ·
 `{{today}}` · `{{postalAddress}}` · `{{topicOptOutUrl}}` (only on a send carrying a topic) ·
-`{{confirmationUrl}}` (opt-in confirmation template only) · `{{poweredBy}}` · `{{preheader}}`
+`{{confirmationUrl}}` (opt-in confirmation template only) · `{{poweredBy}}` · `{{previewText}}` · `{{preheader}}`
 
 `{{today}}` and `{{currentYear}}` are computed at render time from the organization's time zone and
 email language; `{{today}}` in a sequence resolves when the step actually sends. Values passed in
@@ -391,8 +403,9 @@ and that removal is refused while a published step still carries the shortcode.
 footer, never inside an attribute. It is optional — nothing requires it, nothing re-adds it — it
 follows the organization's email language, and it is never counted as a tracked link.
 
-`{{preheader}}` receives the **preview text** — the line the inbox shows after the subject, written
-on the campaign (`preheader`), on a `send_email` step, or passed to `/render`. Put it in a hidden
+`{{previewText}}` and `{{preheader}}` receive the same **preview text** — the line the inbox shows after the subject, written
+on the campaign (`previewText`, compatible alias `preheader`), on a `send_email` step
+(`preheader`), or passed to `/render`. Put it in a hidden
 block right after `<body>`, carrying `data-skip-in-text="true"` so it stays out of the plain-text
 version:
 
@@ -401,8 +414,18 @@ version:
   data-skip-in-text="true"
   style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;color:#f4f4f4;"
 >
-  {{preheader}}&zwnj;&nbsp;&zwnj;&nbsp;
+  {{previewText}}&zwnj;&nbsp;&zwnj;&nbsp;
 </div>
+```
+
+`POST /campaigns` and `PATCH /campaigns/{id}` accept `previewText` (up to 200 characters after
+trimming); `preheader` remains supported. PATCH omission keeps the saved value; `null` clears it.
+Both response fields expose that same value. If both input names are supplied, they must match
+after trimming, including `null`, or the API returns `400`. `/render` accepts the same names;
+omitted, empty or `null` renders an empty string.
+
+```json
+{"previewText": "Timely m’a bloqué mes paiements Stripe pendant 5 jours."}
 ```
 
 Nothing is injected for you: a preview text sent to a document without the tag is simply lost, and
@@ -531,7 +554,7 @@ templates are full of `style="margin:0 !important;…"`.
 
 ### Rendering before sending
 
-`POST /render` takes `{templateId?, content?, subject?, preheader?, variables?}` — `templateId`
+`POST /render` takes `{templateId?, content?, subject?, previewText?, preheader?, variables?}` — `templateId`
 **or** `content`, never neither. A supplied `content` wins, which lets you try an edit before
 saving it.
 
@@ -543,8 +566,8 @@ Returns `{html, text, subject, unknownVariables, warnings}`. Warning vocabulary:
 `missing_postal_address` **always** appears on this endpoint. It is not a template defect — the
 real address is injected at send time. Check `GET /settings` to know whether it is configured.
 
-**`missing_preheader_shortcode`** means the opposite kind of miss: you passed a `preheader` and the
-HTML carries no `{{preheader}}` to receive it. Nothing is injected into the document — add the
+**`missing_preheader_shortcode`** means the opposite kind of miss: you passed preview text and the
+HTML carries neither `{{previewText}}` nor `{{preheader}}` outside comments to receive it. Nothing is injected into the document — add the
 hidden block to the template, or drop the preview text. The send is never refused for it: the inbox
 just falls back to the first visible text of the email.
 
@@ -589,7 +612,12 @@ media just breaks the `<img>` tag on its next open.
 ## Importing contacts
 
 `POST /lists/:listId/contacts` — single upsert, **emits side effects**: enrolment event and a
-double opt-in confirmation email when enabled. Returns 200 (not 201): it is an upsert.
+double opt-in confirmation email when enabled in the organization settings. Returns 200 (not 201): it is an upsert.
+
+The organization setting alone decides new-contact status: enabled means `pending` with a
+confirmation email; disabled means `subscribed` without one. Omit the legacy `doubleOptIn` field:
+it is accepted but ignored, even when `true`. Read `GET /settings` or change `PATCH /settings/optin`
+to manage this setting. Existing contacts keep their status; this endpoint never resubscribes them.
 
 `POST /lists/:listId/contacts/bulk` — **emits nothing**: no email, no event, whatever the
 configuration. `doubleOptIn` is explicitly _rejected_ here rather than ignored, so no caller ever

@@ -75,3 +75,14 @@ The Claude marketplace is `.claude-plugin/marketplace.json`; the Codex marketpla
 is `.agents/plugins/marketplace.json`. Both register the same VillaSlot plugin.
 When updating the skill, keep both copies identical. Credentials are supplied at
 runtime and are never part of the package.
+
+## AgentsMail packaging
+
+The standalone skill in `agentsmail/` is version **2.4**. The marketplace plugin in
+`plugins/agentsmail/` is version **1.4.0**, with identical skill content and manifests
+for both Claude Code and Codex. Both marketplace catalogs register this plugin.
+
+This release documents campaign `previewText`, the `{{previewText}}` alias, backward
+compatibility with `preheader`, and organization-controlled double opt-in. Alias
+availability depends on the API rollout; the skill describes the legacy fallback.
+Credentials remain supplied at runtime, never bundled.

@@ -1,5 +1,5 @@
 {
   "name": "agentsmail",
-  "description": "Work with AgentsMail — its API (contacts, templates, campaigns, sequences, domains, stats, hosted sign-up pages) and the craft of the emails themselves: editable zones, dark mode, deliverability",
-  "version": "1.3.0"
+  "description": "Work with AgentsMail API v1: contacts, templates, campaigns with preview text, sequences, sending domains and sign-up pages; editable email zones, dark mode and deliverability.",
+  "version": "1.4.0"
 }
