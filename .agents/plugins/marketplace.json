@@ -5,6 +5,18 @@
   },
   "plugins": [
     {
+      "name": "youthumb-ai",
+      "source": {
+        "source": "local",
+        "path": "./plugins/youthumb-ai"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    },
+    {
       "name": "villaslot",
       "source": {
         "source": "local",

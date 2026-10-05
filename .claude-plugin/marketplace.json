@@ -5,14 +5,9 @@
   },
   "plugins": [
     {
-      "name": "youthumb-prompts",
-      "source": "./plugins/youthumb-prompts-plugin",
-      "description": "Generate optimized prompts for YouThumb.ai YouTube thumbnails"
-    },
-    {
-      "name": "youthumb-api",
-      "source": "./plugins/youthumb-api-plugin",
-      "description": "Interact with the YouThumb.ai API to generate YouTube thumbnails"
+      "name": "youthumb-ai",
+      "source": "./plugins/youthumb-ai",
+      "description": "Create YouTube thumbnails with YouThumb.ai: MCP server or REST API, persons, assets, prompt method, one project per thumbnail"
     },
     {
       "name": "agentsmail",

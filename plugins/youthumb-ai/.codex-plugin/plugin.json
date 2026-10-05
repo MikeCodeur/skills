@@ -1,0 +1,25 @@
+{
+  "name": "youthumb-ai",
+  "version": "2.0.0",
+  "description": "Create YouTube thumbnails with YouThumb.ai from your agent: MCP server (sign in, no key) or REST API, persons, assets, prompt method, and one project per thumbnail.",
+  "author": {
+    "name": "YouThumb",
+    "url": "https://www.youthumb.ai"
+  },
+  "homepage": "https://www.youthumb.ai",
+  "keywords": ["youtube", "thumbnails", "ai", "mcp", "youthumb"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "YouThumb",
+    "shortDescription": "AI YouTube thumbnails from your agent.",
+    "longDescription": "Create YouTube thumbnails with YouThumb.ai: connect the MCP server (sign in, approve the rights, choose the organization) or use the REST API; set up persons and assets, write strong prompts and iterate inside one project per thumbnail.",
+    "developerName": "YouThumb",
+    "category": "Creativity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://www.youthumb.ai",
+    "privacyPolicyURL": "https://www.youthumb.ai/en/privacy",
+    "termsOfServiceURL": "https://www.youthumb.ai/en/terms",
+    "defaultPrompt": "Create a YouTube thumbnail for my next video with YouThumb."
+  }
+}

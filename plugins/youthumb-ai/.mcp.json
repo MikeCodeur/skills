@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "youthumb": {
+      "type": "http",
+      "url": "https://www.youthumb.ai/api/mcp"
+    }
+  }
+}

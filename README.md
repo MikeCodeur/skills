@@ -6,8 +6,7 @@ Agent Skills for YouTube creators and developers. Compatible with any agent that
 
 | Skill | Description |
 |-------|-------------|
-| [youthumb-prompts](./youthumb-prompts/) | Generate optimized prompts for YouThumb.ai YouTube thumbnails |
-| [youthumb-api](./youthumb-api/) | Interact with the YouThumb.ai API — upload assets, create projects, generate thumbnails |
+| [youthumb-ai](./youthumb-ai/) | Create YouTube thumbnails with YouThumb.ai — MCP server (Claude, Claude Code, Codex, ChatGPT) or REST API, persons, assets, prompt method, one project per thumbnail |
 | [agentsmail](./agentsmail/) | Work with AgentsMail — its API (contacts, templates, campaigns, sequences, sending domains, stats) and the craft of the emails themselves: editable zones, dark mode, deliverability |
 | [villaslot](./villaslot/) | VillaSlot API v1 — villas, hourly rates, availability, bookings, customers and reliable imports |
 
@@ -29,7 +28,7 @@ These skills follow the [Agent Skills specification](https://agentskills.io/spec
 ### Via skills.sh (recommended)
 
 ```bash
-npx skillsadd MikeCodeur/skills/youthumb-prompts
+npx skillsadd MikeCodeur/skills/youthumb-ai
 ```
 
 ### Via Claude Code plugin
@@ -43,16 +42,16 @@ npx skillsadd MikeCodeur/skills/youthumb-prompts
 ```bash
 # Claude Code (personal)
 git clone https://github.com/MikeCodeur/skills /tmp/mc-skills
-cp -r /tmp/mc-skills/youthumb-prompts ~/.claude/skills/
+cp -r /tmp/mc-skills/youthumb-ai ~/.claude/skills/
 
 # Claude Code (project)
-cp -r /tmp/mc-skills/youthumb-prompts .claude/skills/
+cp -r /tmp/mc-skills/youthumb-ai .claude/skills/
 
 # Cursor
-cp -r /tmp/mc-skills/youthumb-prompts .cursor/skills/
+cp -r /tmp/mc-skills/youthumb-ai .cursor/skills/
 
 # Gemini CLI
-cp -r /tmp/mc-skills/youthumb-prompts .gemini/skills/
+cp -r /tmp/mc-skills/youthumb-ai .gemini/skills/
 ```
 
 ## About
