@@ -1,22 +1,31 @@
 {
   "name": "youthumb-ai",
-  "version": "2.0.0",
-  "description": "Create YouTube thumbnails with YouThumb.ai from your agent: MCP server (sign in, no key) or REST API, persons, assets, prompt method, and one project per thumbnail.",
+  "version": "2.2.0",
+  "description": "Create and manage YouThumb thumbnails: MCP or REST API, projects, favorites, trash, result iteration, prompt assistance, persons and assets.",
   "author": {
     "name": "YouThumb",
     "url": "https://www.youthumb.ai"
   },
   "homepage": "https://www.youthumb.ai",
-  "keywords": ["youtube", "thumbnails", "ai", "mcp", "youthumb"],
+  "keywords": [
+    "youtube",
+    "thumbnails",
+    "ai",
+    "mcp",
+    "youthumb"
+  ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "YouThumb",
     "shortDescription": "AI YouTube thumbnails from your agent.",
-    "longDescription": "Create YouTube thumbnails with YouThumb.ai: connect the MCP server (sign in, approve the rights, choose the organization) or use the REST API; set up persons and assets, write strong prompts and iterate inside one project per thumbnail.",
+    "longDescription": "Create and manage YouTube thumbnails through YouThumb MCP or REST: discover projects, favorites and trash; iterate on exact results, retry failed runs, manage persons and assets, and use paid prompt assistance within one project per thumbnail.",
     "developerName": "YouThumb",
     "category": "Creativity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://www.youthumb.ai",
     "privacyPolicyURL": "https://www.youthumb.ai/en/privacy",
     "termsOfServiceURL": "https://www.youthumb.ai/en/terms",

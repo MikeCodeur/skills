@@ -24,13 +24,13 @@ absent from the prompt is dropped.
 
 ## 2. Pick the starting point
 
-| Starting point                                               | Through API / MCP                                                   | Prompt focus                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Free** — prompt-led composition                            | `presetKey: "free"` (default)                                       | the full scene: subject, background, placement, style                 |
-| **Named preset** — a style direction                         | `presetKey` accepted, but API/MCP generations currently run as Free | in the app: subject and story, not a look that contradicts the preset |
-| **Source image** — adapt an existing layout                  | `styleReferenceUrl`                                                 | what to change and what must stay                                     |
-| **YouTube thumbnail** — import a video's thumbnail as source | `youtubeUrl`                                                        | same as source image; only the thumbnail is imported                  |
-| **Template** — a library image as source                     | `templateId` (from `list_templates`)                                | same as source image                                                  |
+| Starting point                                               | Through API / MCP                                                | Prompt focus                                                          |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Free** — prompt-led composition                            | `presetKey: "free"` (default)                                    | the full scene: subject, background, placement, style                 |
+| **Named preset** — a style direction                         | `presetKey` from `list_presets` (applied to API/MCP generations) | in the app: subject and story, not a look that contradicts the preset |
+| **Source image** — adapt an existing layout                  | `styleReferenceUrl`                                              | what to change and what must stay                                     |
+| **YouTube thumbnail** — import a video's thumbnail as source | `youtubeUrl`                                                     | same as source image; only the thumbnail is imported                  |
+| **Template** — a library image as source                     | `templateId` (from `list_templates`)                             | same as source image                                                  |
 
 A source image guides the AI; it does not lock pixels. "Free" is a style name, not free of credits.
 
@@ -193,7 +193,7 @@ them one after another as generations of the same project (`start` with each `pr
   short title"); the prompt describes the scene, the title supplies the words. Or write the text directly in the prompt
   with the typography keywords. Not both with different words.
 - Keep it short (2–4 words) to stay readable in a feed; proofread every letter of the result — AI text can misspell.
-- `title` and the source image are fixed at project creation.
+- `title` and the source image can be overridden per attempt with `start_generation`.
 - **App only — Add Title**: a text-focused pass on a source image with style (e.g. Boxed), color and placement grid
   (Auto, Behind…).
 
@@ -208,22 +208,24 @@ them one after another as generations of the same project (`start` with each `pr
 
 Every attempt is a new generation (a "run") in the same project; earlier runs and their results stay.
 
-| Goal                                                             | App                                             | API / MCP                                              |
-| ---------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
-| Same settings, fresh images                                      | **Regenerate** on the run (charges immediately) | `start` with the same `prompt` and options             |
-| Change prompt or options, then retry                             | **Reuse this run**, edit, Generate              | `start` with the full new `prompt` / `advancedOptions` |
-| Several images of one setup                                      | variation selector 1–4                          | `advancedOptions.variations` 1–4                       |
-| Refine ONE finished image (darker background, keep the product…) | **Use as source** on the result                 | **App only**                                           |
-| Change person, images, source, title or preset                   | edit the composer                               | **App only** on the same project (fixed at creation)   |
+| Goal                                                             | App                                             | API / MCP                                                 |
+| ---------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| Same settings, fresh images                                      | **Regenerate** on the run (charges immediately) | `start` with the same `prompt` and options                |
+| Change prompt or options, then retry                             | **Reuse this run**, edit, Generate              | `start` with the full new `prompt` / `advancedOptions`    |
+| Several images of one setup                                      | variation selector 1–4                          | `advancedOptions.variations` 1–4                          |
+| Refine ONE finished image (darker background, keep the product…) | **Use as source** on the result                 | `start_generation` with `sourceResultId` from that result |
+| Change person, images, source, title or preset                   | edit the composer                               | per-attempt `start_generation` overrides                  |
 
 Iteration tips: change one thing per attempt; when the composition is right, keep the prompt and change only the
 expression, the lighting words or the title; compare results before choosing (the app compares up to three side by side).
 
-**App only, summary**: Sketch · Improve the prompt (rewrite with axes Composition / Visual hook / Mobile readability,
-its own credit cost) · Prompt from the reference image (extraction; accepting it switches the source to Free) ·
-Add Light · Add Title · Use as source · Reuse run · Regenerate button · Compare · Favorites · Trash · Download
-(through the API, use the result URLs) · Thumbnail preview, YouTube card and avatar tools.
-An agent can still do its own prompt rewrite with this file before sending it.
+**Available to agents**: `improve_prompt` and `prompt_from_reference` (0.5 credit each),
+result iteration via `sourceResultId`, parameter changes on `start_generation`, failed-run retry,
+favorites and trash. Use result URLs to download images. Prompt extraction returns text; it does not
+silently switch project settings. To generate without a reference, explicitly choose `presetKey: "free"`.
+
+**App only**: sketch creation, Add Light, Add Title styling, visual comparison, thumbnail preview,
+YouTube card and avatar tools. An agent can write its own prompt with this reference without using a paid prompt tool.
 
 ## 13. Example walkthrough
 

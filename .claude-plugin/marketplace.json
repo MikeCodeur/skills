@@ -7,7 +7,7 @@
     {
       "name": "youthumb-ai",
       "source": "./plugins/youthumb-ai",
-      "description": "Create YouTube thumbnails with YouThumb.ai: MCP server or REST API, persons, assets, prompt method, one project per thumbnail"
+      "description": "YouThumb API/MCP 2.2.0: projects, favorites, trash, result iteration, prompt assistance, persons, assets and thumbnail prompts."
     },
     {
       "name": "agentsmail",
