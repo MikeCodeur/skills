@@ -9,7 +9,7 @@ description: >
 license: MIT
 compatibility: MCP client (Claude, Claude Code, Codex, ChatGPT) or any HTTP client with a YouThumb API key.
 metadata:
-  version: '2.2.1'
+  version: '2.2.2'
   website: https://www.youthumb.ai
   replaces: youthumb-api, youthumb-prompts
 ---

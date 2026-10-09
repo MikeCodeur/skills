@@ -7,7 +7,7 @@
     {
       "name": "youthumb-ai",
       "source": "./plugins/youthumb-ai",
-      "description": "YouThumb API/MCP 2.2.1: projects, favorites, trash, result iteration, prompt assistance, persons, assets and thumbnail prompts."
+      "description": "YouThumb API/MCP 2.2.2: projects, favorites, trash, result iteration, prompt assistance, persons, assets and thumbnail prompts."
     },
     {
       "name": "agentsmail",

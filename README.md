@@ -6,7 +6,7 @@ Agent Skills for YouTube creators and developers. Compatible with any agent that
 
 | Skill | Description |
 |-------|-------------|
-| [youthumb-ai](./youthumb-ai/) | YouThumb 2.2.1 — MCP/REST projects, favorites, trash, result iteration, prompt assistance, persons and assets; one project per thumbnail |
+| [youthumb-ai](./youthumb-ai/) | YouThumb 2.2.2 — MCP/REST projects, favorites, trash, result iteration, prompt assistance, persons and assets; one project per thumbnail |
 | [agentsmail](./agentsmail/) | Work with AgentsMail — its API (contacts, templates, campaigns, sequences, sending domains, stats) and the craft of the emails themselves: editable zones, dark mode, deliverability |
 | [villaslot](./villaslot/) | VillaSlot API v1 — villas, hourly rates, availability, bookings, customers and reliable imports |
 
