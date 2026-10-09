@@ -9,7 +9,7 @@ description: >
 license: MIT
 compatibility: MCP client (Claude, Claude Code, Codex, ChatGPT) or any HTTP client with a YouThumb API key.
 metadata:
-  version: '2.2.0'
+  version: '2.2.1'
   website: https://www.youthumb.ai
   replaces: youthumb-api, youthumb-prompts
 ---
@@ -82,7 +82,9 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
 - **Errors are explicit**: not enough credits, too many variations for the plan, too many generations running
   at once, a right turned off by the user (Account → MCP), the daily agent spending limit. Report them, don't loop.
 - **Organization**: via MCP, the agent works in the organization the user chose when approving; every tool
-  response ends with it. Via API key, it is the account's **active organization** (switched in the app).
+  response ends with it. API-key sessions have no selected organization: REST uses the **first organization
+  returned for the account**. Changing the web app's active organization does not retarget an API key;
+  use MCP consent for an explicit organization choice.
 - **Never** spam retries; on a rate limit wait 30–60 s and back off.
 - **Privacy**: never put personal data (real names, e-mails, faces of people who did not consent) in prompts,
   examples or logs. Use the person registered in YouThumb by the user.

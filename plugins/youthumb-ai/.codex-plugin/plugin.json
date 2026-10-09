@@ -1,6 +1,6 @@
 {
   "name": "youthumb-ai",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Create and manage YouThumb thumbnails: MCP or REST API, projects, favorites, trash, result iteration, prompt assistance, persons and assets.",
   "author": {
     "name": "YouThumb",

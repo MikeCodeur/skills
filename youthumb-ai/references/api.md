@@ -4,8 +4,8 @@ Base URL: `https://www.youthumb.ai` · Header: `x-api-key: $YOUTHUMB_API_KEY` (`
 Key: YouThumb → **Account → API Keys** → create (shown once). Store it as `YOUTHUMB_API_KEY`; never commit it or paste it in prompts.
 Full docs: https://www.youthumb.ai/en/docs/developer-api
 
-Every response is `{"success": true, "data": …}` or `{"success": false, "error": "…", "details"?: {field: [messages]}}`.
-The key acts in the account's **active organization** (switch it in the app before calling).
+Successful resource responses are `{"success": true, "data": …}` (asset DELETE also retains top-level `message: "Asset deleted successfully"`); failures are `{"success": false, "error": "…", "details"?: {field: [messages]}}`.
+API-key sessions have no selected organization: REST resolves the **first organization returned for the account**. Changing the web application's active organization does not retarget the key. Use MCP consent when an explicit organization choice is required.
 
 ## Endpoints
 
