@@ -69,7 +69,7 @@ The override applies to **this generation only**: without `prompt`, the project'
   completed) · `failed` (at least one job failed, none running). One failed attempt keeps the project `failed`: read the newest job.
 - Job `status`: `pending` · `processing` · `completed` · `failed`. Job `type`: `magic-thumbnail`, `thumbnail` or `iterate`.
 - `status` → `{projectId, status, projectName, jobs: [{jobId, status, generatedFileUrl, createdAt}], pagination?}`.
-- `detailed-status` →
+- `detailed-status` in detailed mode (`summary:false`; pass `page`/`limit` to bound jobs) →
 
 ```json
 {
@@ -92,7 +92,7 @@ The override applies to **this generation only**: without `prompt`, the project'
 }
 ```
 
-Results of a generation = `jobs[i].images.results[]`. Before the first start, `projectMetadata` shows what the project
+In detailed mode (`summary:false`), results of a generation = `jobs[i].images.results[]`. Before the first start, `projectMetadata` shows what the project
 holds: check `contentImages` contains real URLs, not `{}`.
 
 - Persons → `{id, name, description, isDefault, imageCount, createdAt, images?: [{id, url, name}]}` (create returns no `images`).
@@ -187,7 +187,7 @@ Active jobs and projects with active jobs cannot be trashed (409). Restoring a j
 
 `POST /api/thumbnails/:projectId/start` and `start_generation` keep the same project. Optional overrides: `prompt`, `personId` (`null` clears), `presetKey`, `templateId`, `styleReferenceUrl`, `youtubeUrl`, `sourceResultId`, `contentImages` (`[]` clears), `title` (`""` clears), and `advancedOptions`. Omitted fields retain project defaults; options merge. Overrides affect only this attempt, never the saved project. Supply only one source selector (preset, template, URL, YouTube or result). Each content image contains exactly one `userImageId` or `url`; explicit image URLs must belong to your configured uploaded storage path. Upload external images first.
 
-Read `jobs[].results[].id` from project detail; pass that ID as `sourceResultId` to iterate on that exact completed image. It must belong to a visible completed job in the same project. A reference selects normal generation; a preset selects magic generation. Deleted projects and results cannot be generated from.
+Read `jobs[].results[].id` from a bounded project detail page with `summary:false`; pass that ID as `sourceResultId` to iterate on that exact completed image. It must belong to a visible completed job in the same project. A reference selects normal generation; a preset selects magic generation. Deleted projects and results cannot be generated from.
 
 ```json
 {

@@ -65,7 +65,7 @@ Management writes spend no credits.
   The slug gives the project URL: `https://www.youthumb.ai/<locale>/team/<slug>/thumbnails/<projectId>`.
 - `create_thumbnail_project` → `{projectId, status: "pending", projectName, createdAt}`.
 - `start_generation` → `{jobId, projectId, status: "processing", creditsConsumed}`.
-- `get_generation` →
+- `get_generation` in detailed mode (`summary:false`; pass `page`/`limit` to bound jobs) →
 
 ```json
 {

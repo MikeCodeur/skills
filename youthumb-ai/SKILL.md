@@ -63,7 +63,9 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
    `youtubeUrl` or `templateId` and describe what changes and what stays.
 5. **Show the user** the prompt and settings, then **create the project** (once) and **start a generation** with 1 variation.
 6. **Poll** `get_generation({projectId, summary:true, page:1, limit:5})` / `GET /api/thumbnails/<projectId>/detailed-status?summary=true&page=1&limit=5` every 10–20 s until the **newest job**
-   is `completed` (images in its results) or `failed` (read `errorMessage`). Show the image URLs.
+   is `completed` or `failed`. In compact mode, show `generatedFileUrl` on success. For errors, all variations,
+   or result image IDs, request a bounded page with `summary:false` and read `errorMessage` or `results`
+   on the matching `jobId`; page further if needed.
 7. **Iterate in the same project** (rule 2): adjust the prompt or options, start a new generation.
 
 ## 4. Things that bite
@@ -72,7 +74,7 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
   A content image whose token is not in the prompt is dropped before generation.
 - **Content images**: pass `{ "url": … }` or `{ "userImageId": … }` (an uploaded asset id).
   Upload results of type `bucket` have an empty `id` — use their `url`. External URLs are downloaded at project
-  creation; an unreachable or non-image URL is silently removed (check `projectMetadata.contentImages` in `detailed-status`).
+  creation; an unreachable or non-image URL is silently removed (check `projectMetadata.contentImages` with `summary:false` in `detailed-status`).
 - **Per-attempt overrides**: change person, content images, source, title, preset, prompt and options on
   `start_generation` without making another project. Use `sourceResultId` to refine a completed result.
 - **A `start` override is not saved.** A `start` without `prompt` reuses the project's ORIGINAL prompt, and
@@ -80,7 +82,8 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
 - **Project status ≠ last attempt**: the project becomes `failed` as soon as any of its jobs failed, even if a later
   one completed. Read the status of the newest job.
 - **Prompt limit: 2000 characters** (3 minimum). Aim for 80–250 words.
-- **Generation is asynchronous**: `start` returns `processing`; failures show up later in the job's `errorMessage`.
+- **Generation is asynchronous**: `start` returns `processing`; poll the job status in compact mode;
+  read `errorMessage` from a bounded `summary:false` detail page if it fails.
 - **Errors are explicit**: not enough credits, too many variations for the plan, too many generations running
   at once, a right turned off by the user (Account → MCP), the daily agent spending limit. Report them, don't loop.
 - **Organization**: via MCP, the agent works in the organization the user chose when approving; every tool
