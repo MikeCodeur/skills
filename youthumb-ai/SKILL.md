@@ -9,7 +9,7 @@ description: >
 license: MIT
 compatibility: MCP client (Claude, Claude Code, Codex, ChatGPT) or any HTTP client with a YouThumb API key.
 metadata:
-  version: '2.2.4'
+  version: '2.3.0'
   website: https://www.youthumb.ai
   replaces: youthumb-api, youthumb-prompts
 ---
@@ -73,7 +73,7 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
 - **`@imageN` is mandatory** for every content image, with a short description: `@image1 (product logo)`.
   A content image whose token is not in the prompt is dropped before generation.
 - **Content images**: pass `{ "url": … }` or `{ "userImageId": … }` (an uploaded asset id).
-  Upload results of type `bucket` have an empty `id` — use their `url`. External URLs are downloaded at project
+  New `bucket` uploads return a persisted UUID; old files with `id: null` require explicit indexing or URL input. External URLs are downloaded at project
   creation; an unreachable or non-image URL is silently removed (check `projectMetadata.contentImages` with `summary:false` in `detailed-status`).
 - **Per-attempt overrides**: change person, content images, source, title, preset, prompt and options on
   `start_generation` without making another project. Use `sourceResultId` to refine a completed result.
@@ -96,7 +96,8 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
 - **App only**: sketch creation, Add Light, Add Title styling, visual comparison and preview tools.
   Library favorites/trash, prompt assistance and result iteration are available through API/MCP.
 - **Three image namespaces**: stored assets use `assetId`/`userImageId`; catalog templates use `templateId`;
-  temporary bucket files have `id: ""`, `fileKey`, `ownerScope: "user"` and are referenced by URL.
+  bucket files have `fileKey`, `ownerScope: "user"` and a persisted UUID; historical `id: null` files
+  require `index_bucket_assets` (explicit mutation, assets permission, 0 credits) or URL input.
   Find favorite logos with `list_assets({type:"bucket", search:"logo", favorite:true})`; bucket lists
   expose `isFavorite`, exact filtered totals and `sortBy`/`sortOrder` (default creation date descending).
   See the assets section in the transport reference for enumeration cost and pagination semantics.
@@ -114,7 +115,7 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
 
 ## Same-project attempts and prompt assistance
 
-Use `start_generation` overrides for another attempt, `sourceResultId` from `get_generation.jobs[].results[].id` for true iteration, and `retry_generation` only for failed Default jobs. Retry is a new billed, non-idempotent attempt from its saved inputs. Never create another project merely to change a person, preset, content, title or prompt. Explicit null/empty values clear fields; omission preserves defaults. `improve_prompt` and `prompt_from_reference` cost 0.5 credit each and count toward the MCP daily cap. Upload external references first. Read the exact contracts in references/api.md and references/mcp.md.
+Use `start_generation` overrides for another attempt, `sourceResultId` from `get_generation.jobs[].results[].id` for true iteration, and `retry_generation` only for failed Default jobs. Retry is a new billed, non-idempotent attempt from its saved inputs. Never create another project merely to change a person, preset, content, title or prompt. Explicit null/empty values clear fields; omission preserves defaults. `improve_prompt` and `prompt_from_reference` cost 0.5 credit each and count toward the MCP daily cap. Upload external references first; exact stored result URLs are accepted only for completed, visible jobs in the selected organization. Keep personName separate from @image tokens and quote exact on-image text. Invalid provider output is rejected and refunded, without automatic retries. Read the exact contracts in references/api.md and references/mcp.md.
 
 ## Compatibility
 

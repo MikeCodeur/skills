@@ -7,7 +7,7 @@
     {
       "name": "youthumb-ai",
       "source": "./plugins/youthumb-ai",
-      "description": "YouThumb API/MCP 2.2.4: bucket favorites, search and pagination, compact generation summaries, full prompts, explicit counts, projects, trash and persons."
+      "description": "YouThumb API/MCP 2.3.0: 33 tools, persistent personal bucket UUIDs and explicit indexing, reliable prompt text, template URLs, face associations, compact generation summaries and favorites."
     },
     {
       "name": "agentsmail",

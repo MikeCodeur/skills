@@ -1,7 +1,7 @@
 {
   "name": "youthumb-ai",
-  "version": "2.2.4",
-  "description": "Create and manage YouThumb thumbnails: compact MCP/REST generation summaries, full prompts, explicit usage counts, bucket favorites and search, projects, trash, persons and assets.",
+  "version": "2.3.0",
+  "description": "YouThumb API/MCP 2.3.0: 33 tools, persistent personal bucket UUIDs and explicit indexing, reliable prompt text, template URLs, face associations, compact generation summaries and favorites.",
   "author": {
     "name": "YouThumb",
     "url": "https://www.youthumb.ai"
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "YouThumb",
     "shortDescription": "AI YouTube thumbnails from your agent.",
-    "longDescription": "Create and manage YouTube thumbnails through YouThumb MCP or REST: discover projects, favorites and trash; iterate on exact results, retry failed runs, manage persons and assets, and use paid prompt assistance within one project per thumbnail.",
+    "longDescription": "Create and manage YouTube thumbnails through YouThumb MCP or REST. Use 33 tools, persisted personal bucket UUIDs with explicit historical indexing, reliable person/text prompts, absolute template URLs, face associations and compact paginated results. Keep one project per thumbnail.",
     "developerName": "YouThumb",
     "category": "Creativity",
     "capabilities": [

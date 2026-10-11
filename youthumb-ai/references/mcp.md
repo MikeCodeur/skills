@@ -38,21 +38,22 @@ images and persons — re-checked on every call), and a daily credit limit for a
 
 ## Tools
 
-| Right    | Tool                       | Input                                                                              | Does                                                                |
-| -------- | -------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| read     | `get_credits`              | —                                                                                  | balance, plan and usage of the organization                         |
-| read     | `list_persons`             | —                                                                                  | persons with their photos (`id`, `name`, `description`, `images[]`) |
-| read     | `get_person`               | `personId`                                                                         | one person with its photos                                          |
-| read     | `list_assets`              | `type?`, `search?`, `isPublished?`, `page?`, `limit?` ≤ 100; bucket: `favorite?`, `sortBy?`, `sortOrder?`                        | owned/shared images, including unpublished uploads                  |
-| read     | `list_templates`           | `scope?`, `search?`, `category?`, `isFeatured?`, `isPublished?`, `page?`, `limit?` | published templates (source images)                                 |
-| read     | `list_presets`             | —                                                                                  | the 15 style presets (`key`, `label`, `description`)                |
-| read     | `get_generation`           | `projectId, summary?, page?, limit?, status?`                                      | project status and every generation with its result image URLs      |
-| generate | `create_thumbnail_project` | same body as `POST /api/thumbnails` (`references/api.md`)                          | create the project (free) — **once per thumbnail**                  |
-| generate | `start_generation`         | `projectId` and per-attempt overrides (below)                                      | start a generation (1 credit per variation)                         |
-| assets   | `upload_asset`             | `base64`, `type`, `filename?`, `mimeType?`, `description?`                         | upload an image                                                     |
-| assets   | `delete_asset`             | `assetId`                                                                          | delete an uploaded image (destructive, irreversible)                |
-| assets   | `create_person`            | `name`, `description?`, `imageIds?`                                                | create a person from face images                                    |
-| assets   | `add_person_images`        | `personId`, `imageIds` (1–10)                                                      | attach more face images to a person                                 |
+| Right    | Tool                       | Input                                                                                                                        | Does                                                                |
+| -------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| read     | `get_credits`              | —                                                                                                                            | balance, plan and usage of the organization                         |
+| read     | `list_persons`             | —                                                                                                                            | persons with their photos (`id`, `name`, `description`, `images[]`) |
+| read     | `get_person`               | `personId`                                                                                                                   | one person with its photos                                          |
+| assets   | `index_bucket_assets`      | `page?`, `limit?` (1–100, default 100)                                                                                       | Persist personal bucket UUIDs, explicit/idempotent, 0 credits       |
+| read     | `list_assets`              | `type?`, `search?`, `isPublished?`, `page?`, `limit?` ≤ 100; bucket: `favorite?`, `sortBy?`, `sortOrder?`; face: `attached?` | owned/shared images, including unpublished uploads                  |
+| read     | `list_templates`           | `scope?`, `search?`, `category?`, `isFeatured?`, `isPublished?`, `page?`, `limit?`                                           | published templates (source images)                                 |
+| read     | `list_presets`             | —                                                                                                                            | the 15 style presets (`key`, `label`, `description`)                |
+| read     | `get_generation`           | `projectId, summary?, page?, limit?, status?`                                                                                | project status and every generation with its result image URLs      |
+| generate | `create_thumbnail_project` | same body as `POST /api/thumbnails` (`references/api.md`)                                                                    | create the project (free) — **once per thumbnail**                  |
+| generate | `start_generation`         | `projectId` and per-attempt overrides (below)                                                                                | start a generation (1 credit per variation)                         |
+| assets   | `upload_asset`             | `base64`, `type`, `filename?`, `mimeType?`, `description?`                                                                   | upload an image                                                     |
+| assets   | `delete_asset`             | `assetId`                                                                                                                    | delete an uploaded image (destructive, irreversible)                |
+| assets   | `create_person`            | `name`, `description?`, `imageIds?`                                                                                          | create a person from face images                                    |
+| assets   | `add_person_images`        | `personId`, `imageIds` (1–10)                                                                                                | attach more face images to a person                                 |
 
 Organization resources stay in the organization chosen at consent. Temporary files belong to the caller;
 the template catalog is public or caller-owned. Read tools are annotated read-only; delete/trash tools
@@ -112,10 +113,10 @@ Judge an attempt by **its own job**, not by the project status.
 
 - `upload_asset` types: `face` (person photos — returns an `id` for `create_person` / `add_person_images`),
   `template` (stored source image, has an `id`), `bucket` (temporary content image: logo, screenshot, product —
-  **`id` is empty**, use the returned `url` in `contentImages`). `base64` may include a `data:image/...;base64,` prefix;
+  **persisted UUID in `id`**, usable as `userImageId` or use the returned `url`). `base64` may include a `data:image/...;base64,` prefix;
   `mimeType` defaults to `image/jpeg` — set it to match the file.
 - `list_assets` includes authorized unpublished imports. `type=bucket` lists personal temporary uploads;
-  use their `url`, not their empty `id`. Find favorite logos with `favorite:true` and `search:"logo"`.
+  use their persisted UUID or URL; index historical files whose `id` is null. Find favorite logos with `favorite:true` and `search:"logo"`.
   See the assets section below for sorting, exact totals and full-enumeration cost.
 - `start_generation` reserves the daily agent limit for the requested variations and releases it if the start fails.
 
@@ -147,7 +148,7 @@ Active jobs and projects with active jobs cannot be trashed (409). Restoring a j
 | REST                                       | MCP                         | Parameters                                       |
 | ------------------------------------------ | --------------------------- | ------------------------------------------------ |
 | `GET /api/thumbnails`                      | `list_thumbnail_projects`   | `page, limit, search, status, favorite, deleted` |
-| `GET /api/thumbnails/:projectId`           | `get_generation`            | `summary?, page?, limit?, status?`                         |
+| `GET /api/thumbnails/:projectId`           | `get_generation`            | `summary?, page?, limit?, status?`               |
 | `PATCH /api/thumbnails/:projectId`         | `update_thumbnail_project`  | `projectName`                                    |
 | `GET /api/thumbnails/results`              | `list_generations`          | `page, limit, favorite, projectId`               |
 | `PUT /api/thumbnails/:projectId/favorite`  | `set_project_favorite`      | `isFavorite`                                     |
@@ -179,7 +180,7 @@ Read `jobs[].results[].id` from project detail; pass that ID as `sourceResultId`
 
 `POST /api/thumbnails/prompts/improve` / `improve_prompt`: `prompt` plus optional `context` with `axes` (`composition`, `hook`, `readability`), `language` (`fr`, `en`, `es`), `personName`, `title`, `customInstruction`, `hasStyleReference`, `referenceTokens` (`@image1`...), `sketchTokens` (`@sketch1`...).
 
-`POST /api/thumbnails/prompts/from-reference` / `prompt_from_reference`: exactly one of `assetId`, published or own-private `templateId`, `projectId` + `sourceResultId`, or `imageUrl` proven to be an upload owned by the caller; optional `language` (default `en`). Arbitrary URLs are refused; upload first. References are authorized in the selected organization before billing.
+`POST /api/thumbnails/prompts/from-reference` / `prompt_from_reference`: exactly one of `assetId`, published or own-private `templateId`, `projectId` + `sourceResultId`, or `imageUrl` proven to be an upload owned by the caller or an exact stored result URL from a completed, visible job in the selected organization; optional `language` (default `en`). Arbitrary URLs are refused; upload first. References are authorized in the selected organization before billing.
 
 Both return `{prompt, creditsConsumed: 0.5}` without creating a project or image. Provider failure refunds once. MCP requires `mcp:generate` and Generation enabled. Its daily cap counts exact half credits; changing the tool does not evade the limit. Existing integer limits retain their meaning.
 
@@ -202,9 +203,9 @@ MCP mutations require `mcp:assets` and active Images and persons access. Reads r
 
 `GET /api/assets` / `list_assets` accepts `type` (`face`, `template`, `bucket`), `search`, `isPublished`, `page` (default 1), `limit` (default 20, max 100). Without `type`, stored face and template images are listed. Search matches name/description, and visibility/publication filters apply before pagination and count. Stored results include `isPublished`, `ownerScope: "organization"`; pagination returns `page`, `limit`, `total`, `totalPages`, `hasMore`.
 
-`type=bucket` lists the caller's personal temporary folder across organizations. Results include `ownerScope: "user"`, `id: ""`, stable `fileKey`, `url` and `isFavorite`. Use `contentImages: [{"url": "RETURNED_URL"}]` for generation; `get_asset` and `userImageId` require a persisted asset UUID, never a bucket file key. `favorite=true` selects starred files, `favorite=false` excludes them; omission includes both. `search` matches file names. Bucket-only `sortBy=name|createdAt` and `sortOrder=asc|desc` default to `createdAt` descending. Unknown or invalid dates remain `createdAt: null` and sort last in either direction; ties use `fileKey` ascending. These three bucket filters are rejected for other asset types; `isPublished` is invalid for bucket files.
+`type=bucket` lists personal files across the caller's organizations, with `ownerScope: "user"`, `fileKey`, `url`, `isFavorite`, and persisted `id` (UUID) or `id: null` / `requiresIndexing: true` for historical files. See the indexing procedure below. `favorite=true` selects starred files, `favorite=false` excludes them; omission includes both. `search` matches file names. Bucket-only `sortBy=name|createdAt` and `sortOrder=asc|desc` default to `createdAt` descending. Unknown or invalid dates remain `createdAt: null` and sort last in either direction; ties use `fileKey` ascending. These three bucket filters are rejected for other asset types; `isPublished` is invalid for bucket files.
 
-The service enumerates matching storage files in batches of 100, deduplicates by path and excludes non-images/placeholders before favorite filtering, sorting and public pagination. `total` is the filtered image count, `totalPages = ceil(total / limit)` and `hasMore` signals another page. Empty results have totals of 0; an out-of-range page is empty. Orphan favorites do not create assets. Every request enumerates the matching folder, so large folders cost more storage requests; concurrent changes are not an atomic snapshot. Any provider page failure fails the request rather than returning partial success. Temporary files cannot be deleted through `/api/assets/:id`.
+The service enumerates matching storage files in batches of 100, deduplicates by path and excludes non-images/placeholders before favorite filtering, sorting and public pagination. `total` is the filtered image count, `totalPages = ceil(total / limit)` and `hasMore` signals another page. Empty results have totals of 0; an out-of-range page is empty. Orphan favorites do not create assets. Every request enumerates the matching folder, so large folders cost more storage requests; concurrent changes are not an atomic snapshot. Any provider page failure fails the request rather than returning partial success.
 
 Example: `GET /api/assets?type=bucket&search=logo&favorite=true&sortBy=createdAt&sortOrder=desc&page=1&limit=20` or MCP `list_assets({"type":"bucket","search":"logo","favorite":true,"sortBy":"createdAt","sortOrder":"desc","page":1,"limit":20})`.
 
@@ -212,7 +213,7 @@ Example: `GET /api/assets?type=bucket&search=logo&favorite=true&sortBy=createdAt
 
 `GET /api/templates` / `list_templates` searches catalog title, description and tags with `search`. `scope=public` (default) lists published catalog templates; `scope=mine` lists only templates you created, published or private. `isPublished=false` requires `scope=mine`. Existing `category`, `isFeatured`, `page`, `limit` filters remain. Responses contain `templates` and `pagination` (`page`, `limit`, `total`, `totalPages`).
 
-A catalog UUID goes in `templateId`. An uploaded personal reference is found through `list_assets(type="template")`: use its URL as `styleReferenceUrl`, or its UUID as a content `userImageId` / prompt-assistance `assetId`. A temporary file uses its URL. Never interchange catalog IDs, asset IDs and file keys.
+A catalog UUID goes in `templateId`. An uploaded personal reference is found through `list_assets(type="template")`: use its URL as `styleReferenceUrl`, or its UUID as a content `userImageId` / prompt-assistance `assetId`. An indexed bucket file uses its UUID or URL; an unindexed historical file still uses its URL. Never interchange catalog IDs, asset IDs and file keys.
 
 ```bash
 curl "$BASE/api/assets?type=template&search=studio&page=1&limit=20" -H "x-api-key: $YOUTHUMB_API_KEY"
@@ -229,3 +230,41 @@ Prefer `get_generation({projectId, summary:true, page:1, limit:5})` or `GET /api
 `get_credits` / `GET /api/usage` adds `counts.activeGenerationProjects` (non-deleted projects, all generation types) and `counts.completedThumbnailJobs` (completed, non-deleted jobs in visible thumbnail projects; same scope as unfiltered `list_generations`). These are organization-scoped counts of projects and jobs, not images or credits consumed. Existing `generations` statistics still count projects; `generations.total` equals `counts.activeGenerationProjects`. Credits and historical counters are unchanged.
 
 Project favorites (`generation_project`), job favorites (`generation_job`) and personal bucket file favorites are separate. `list_thumbnail_projects({favorite:true})` may correctly return zero even with many favorite jobs: it does not select projects merely containing favorite jobs. If tool parameters omit `summary`, `page`, `limit` or asset `search`, refresh/reconnect the MCP client and reload its tool list; updating the skill alone does not update cached tool schemas.
+
+### Prompt fidelity and reference resolution
+
+`improve_prompt` / `POST /api/thumbnails/prompts/improve` preserves `context.personName` as a name, never an image token. Face references do not consume `@imageN`: those tokens identify content images. Provide `referenceTokens` / `sketchTokens` for all available references; existing tokens in the prompt and custom instruction are also checked. Every required token must occur exactly once and no new token may appear.
+
+Put exact on-image text in quotation marks, for example `Alex beside @image1 with the text "BYE !"`, or set `context.title`. The output is validated for exact person name, title, and quoted literals in `prompt` / `customInstruction`. If the model drops a required literal or changes token counts, the call fails explicitly and refunds the 0.5 credit; it does not retry automatically or fabricate a replacement. This is a literal-preservation check, not a guarantee of artistic quality, semantic token placement or preservation of every unquoted instruction.
+
+`prompt_from_reference` resolves a published or caller-owned private `templateId` using the stored image path, never the title. Relative paths become absolute storage URLs. `imageUrl` accepts the caller's own uploaded files, or an exact URL saved on a completed, non-trashed thumbnail job/result in the selected organization, under the configured storage origin/bucket/environment and `generation/` path. Another tenant's results, missing/deleted/failed results, arbitrary URLs, credentials, query strings and ambiguous paths are refused before billing/provider access. Use `projectId` + `sourceResultId` when selecting a result by ID. These two prompt tools consume 0.5 credit on success; they are not free reading tools.
+
+A rejected improvement returns HTTP 500 with `code: "PROMPT_FIDELITY_FAILED"` and a safe explanation of the lost literal or invalid tokens. This is a provider-output failure, not invalid user input; the existing refund applies. Other unexpected server errors retain a generic response.
+
+### Asset counts and person associations
+
+Without `type`, `list_assets` / `GET /api/assets` lists accessible stored faces and templates (selected organization AND owned or shared). It does not include the personal bucket. `get_credits.resources.assets` counts all stored assets in the organization, including files not visible to this caller; it is not the count of personal bucket files and need not equal the accessible listing total. Query `type=bucket` separately.
+
+Face assets return `personIds` and `isAttached`. Use `type=face&attached=true` (or MCP `{type:"face",attached:true}`) for attached photos, and `attached=false` for independent files. This filter applies before count and pagination and is rejected without `type=face`. A file may belong to several persons. Removing a photo from a person detaches it and preserves the asset. Multiple files may share a name or even identical bytes: neither a name nor an absent association proves that deletion is safe. No automatic cleanup or deduplication of existing assets is performed.
+
+### Template URLs and continuation
+
+`get_template` and `list_templates` return absolute `imageUrl` and nullable `previewUrl`, alongside unchanged `imagePath` / `previewPath`. Use the returned URL, never construct it from `title`. `pagination.hasMore` is `page * limit < total` (false for empty, final or out-of-range pages). `prompt_from_reference({templateId})` resolves the stored path on the server.
+
+New image uploads/imports, including public catalog originals and generated previews, use a safe filename slug and an extension matching decoded image bytes; the display name is retained. Existing objects are not renamed or moved, so old unusual filenames remain valid through their stored URLs. Do not append a guessed extension to an existing URL.
+
+### Refresh an outdated tool schema
+
+The server contract version is `2.3.0`. Check the server's `tools/list`: `list_assets` includes `search`, `favorite`, `sortBy`, `sortOrder`, and face-only `attached`; `get_generation` includes `summary`, `page`, `limit`, `status`. Prefer `{projectId,summary:true,page:1,limit:5}` for discovery. A skill update and a server version bump cannot force a third-party client to discard cached tool definitions. Refresh/reconnect the MCP connection or start a fresh client session if these arguments are missing, then inspect `tools/list` again. Do not conclude that a feature is absent from a stale client schema.
+
+`improve_prompt` and `prompt_from_reference` are paid generation actions (0.5 credit each), not read-only audit calls. Use them only when prompt generation is requested.
+
+## Persistent personal bucket assets (2.3.0)
+
+New `bucket` uploads (web UI, multipart REST or MCP/base64) return a persisted UUID in `id`, plus `fileKey`, `url`, `ownerScope: "user"` and `requiresIndexing: false`. Use `get_asset({assetId: id})` or `contentImages: [{userImageId: id}]`; URL input still works. Only the exact owner can resolve/delete this personal asset, across their selected organizations. It cannot be attached as a person face. `delete_asset` / `DELETE /api/assets/:id` removes the storage object before its registry identity.
+
+Historical files are not silently migrated: listing returns `id: null` and `requiresIndexing: true` until explicitly indexed. Their URLs and path-based favorites remain unchanged. `pagination.unindexedCount` counts unindexed files in the complete filtered bucket listing. Reads never create database rows.
+
+To index an authorized user's existing files, call `index_bucket_assets({page:1,limit:100})` or `POST /api/assets/bucket/index` with JSON `{"page":1,"limit":100}`. `page` starts at 1, `limit` is 1–100 (default 100). Response: `page`, `limit`, `indexed`, `hasMore`, `nextPage`. Follow `nextPage` until `hasMore:false`, then re-list the bucket to retrieve UUIDs. Pages are raw storage pages, so skipped non-images can make `indexed` lower than `limit`; `indexed` includes already indexed files. Restarting or retrying keeps the same UUID. Storage changes during traversal may require another pass; no snapshot is promised.
+
+This explicit, idempotent, non-destructive mutation requires the `assets` family and `mcp:assets` scope, consumes **0 credits**, and reads at most `limit + 1` storage entries per call. It creates only personal identity rows: no renaming, copying, automatic orphan deletion or favorite changes. There are **33 MCP tools**. Migration and deployment must precede use; these code changes do not assert that production's historical files have already been indexed.
