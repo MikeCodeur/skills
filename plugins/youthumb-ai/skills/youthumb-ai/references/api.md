@@ -172,7 +172,7 @@ Active jobs and projects with active jobs cannot be trashed (409). Restoring a j
 | REST                                       | MCP                         | Parameters                                       |
 | ------------------------------------------ | --------------------------- | ------------------------------------------------ |
 | `GET /api/thumbnails`                      | `list_thumbnail_projects`   | `page, limit, search, status, favorite, deleted` |
-| `GET /api/thumbnails/:projectId`           | `get_generation`            | `page?, limit?, status?`                         |
+| `GET /api/thumbnails/:projectId`           | `get_generation`            | `summary?, page?, limit?, status?`                         |
 | `PATCH /api/thumbnails/:projectId`         | `update_thumbnail_project`  | `projectName`                                    |
 | `GET /api/thumbnails/results`              | `list_generations`          | `page, limit, favorite, projectId`               |
 | `PUT /api/thumbnails/:projectId/favorite`  | `set_project_favorite`      | `isFavorite`                                     |
@@ -227,7 +227,11 @@ MCP mutations require `mcp:assets` and active Images and persons access. Reads r
 
 `GET /api/assets` / `list_assets` accepts `type` (`face`, `template`, `bucket`), `search`, `isPublished`, `page` (default 1), `limit` (default 20, max 100). Without `type`, stored face and template images are listed. Search matches name/description, and visibility/publication filters apply before pagination and count. Stored results include `isPublished`, `ownerScope: "organization"`; pagination returns `page`, `limit`, `total`, `totalPages`, `hasMore`.
 
-`type=bucket` lists the caller's personal temporary folder, across all organizations. It is explicitly **user scoped**, with `ownerScope: "user"`, `id: ""`, stable `fileKey` and `url`. Use the URL in generation; a file key is not an asset UUID. Storage pages are reachable through `page`/`limit`; `total` and `totalPages` are `null`, so follow `hasMore`. Non-image placeholders/folders are omitted and may shorten a page. `search` matches file names; `isPublished` is invalid for temporary files. Provider failures are errors, not empty successful lists. A temporary file’s `createdAt` is its storage timestamp, or `null` if unavailable or invalid; no creation date is invented. Temporary files cannot be deleted through `/api/assets/:id`.
+`type=bucket` lists the caller's personal temporary folder across organizations. Results include `ownerScope: "user"`, `id: ""`, stable `fileKey`, `url` and `isFavorite`. Use `contentImages: [{"url": "RETURNED_URL"}]` for generation; `get_asset` and `userImageId` require a persisted asset UUID, never a bucket file key. `favorite=true` selects starred files, `favorite=false` excludes them; omission includes both. `search` matches file names. Bucket-only `sortBy=name|createdAt` and `sortOrder=asc|desc` default to `createdAt` descending. Unknown or invalid dates remain `createdAt: null` and sort last in either direction; ties use `fileKey` ascending. These three bucket filters are rejected for other asset types; `isPublished` is invalid for bucket files.
+
+The service enumerates matching storage files in batches of 100, deduplicates by path and excludes non-images/placeholders before favorite filtering, sorting and public pagination. `total` is the filtered image count, `totalPages = ceil(total / limit)` and `hasMore` signals another page. Empty results have totals of 0; an out-of-range page is empty. Orphan favorites do not create assets. Every request enumerates the matching folder, so large folders cost more storage requests; concurrent changes are not an atomic snapshot. Any provider page failure fails the request rather than returning partial success. Temporary files cannot be deleted through `/api/assets/:id`.
+
+Example: `GET /api/assets?type=bucket&search=logo&favorite=true&sortBy=createdAt&sortOrder=desc&page=1&limit=20` or MCP `list_assets({"type":"bucket","search":"logo","favorite":true,"sortBy":"createdAt","sortOrder":"desc","page":1,"limit":20})`.
 
 ### Three reference namespaces
 
@@ -240,3 +244,13 @@ curl "$BASE/api/assets?type=template&search=studio&page=1&limit=20" -H "x-api-ke
 curl "$BASE/api/templates?scope=mine&isPublished=false&search=studio" -H "x-api-key: $YOUTHUMB_API_KEY"
 curl -X PATCH "$BASE/api/persons/$PERSON_ID" -H "x-api-key: $YOUTHUMB_API_KEY" -H "Content-Type: application/json" -d '{"description":null}'
 ```
+
+## Compact exploration and explicit counts
+
+Prefer `get_generation({projectId, summary:true, page:1, limit:5})` or `GET /api/thumbnails/:projectId?summary=true&page=1&limit=5` for exploration and polling. `summary=true` defaults to page 1 and limit 20 (1–100); `status` still accepts comma-separated statuses. The response contains `projectId`, `projectName`, `status`, `isFavorite`, the full-project `summary`, `pagination`, and `jobs` with only `jobId`, `status`, `type`, `isFavorite`, `userPrompt`, `generatedFileUrl`, `createdAt`. It omits project/job metadata, embedded images and persons. Full prompts are retained, so there is no fixed byte-size guarantee. Follow `pagination.hasMore` for further pages. For result image IDs needed by `sourceResultId`, request a bounded detailed page with `summary:false`.
+
+`summary` absent or false preserves the existing detailed contract, including unbounded status-only reads. `list_generations` / `GET /api/thumbnails/results` now includes the complete `userPrompt` (or null) per job; no detail call is required to read prompts.
+
+`get_credits` / `GET /api/usage` adds `counts.activeGenerationProjects` (non-deleted projects, all generation types) and `counts.completedThumbnailJobs` (completed, non-deleted jobs in visible thumbnail projects; same scope as unfiltered `list_generations`). These are organization-scoped counts of projects and jobs, not images or credits consumed. Existing `generations` statistics still count projects; `generations.total` equals `counts.activeGenerationProjects`. Credits and historical counters are unchanged.
+
+Project favorites (`generation_project`), job favorites (`generation_job`) and personal bucket file favorites are separate. `list_thumbnail_projects({favorite:true})` may correctly return zero even with many favorite jobs: it does not select projects merely containing favorite jobs. If tool parameters omit `summary`, `page`, `limit` or asset `search`, refresh/reconnect the MCP client and reload its tool list; updating the skill alone does not update cached tool schemas.

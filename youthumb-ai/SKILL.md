@@ -9,7 +9,7 @@ description: >
 license: MIT
 compatibility: MCP client (Claude, Claude Code, Codex, ChatGPT) or any HTTP client with a YouThumb API key.
 metadata:
-  version: '2.2.2'
+  version: '2.2.4'
   website: https://www.youthumb.ai
   replaces: youthumb-api, youthumb-prompts
 ---
@@ -44,6 +44,8 @@ tweak for that thumbnail is a **new generation inside the same project**, never 
 
 ## Library management
 
+Use compact paginated detail for exploration; request `summary:false` with page/limit when result image IDs are needed for iteration. `list_generations` includes full prompts. Project, job and bucket favorites are independent. Usage counts distinguish projects from completed thumbnail jobs; see the reference contracts. Refresh cached MCP tool definitions when documented parameters are missing.
+
 Find existing projects with `list_thumbnail_projects` before creating duplicates. Use `favorite: true` for organization favorites and `list_generations` for completed results across projects. Set favorites explicitly; never simulate a toggle. Use `list_trash` to inspect removed items, restore the parent project before an individually deleted generation. Reads require Read access; these management writes require Generation access but consume no credits. Project trash remains admin-only. Contracts and examples: `references/api.md` and `references/mcp.md`.
 
 ## 3. Workflow
@@ -60,7 +62,7 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
    preset from `list_presets` and keep the prompt on subject and story. To adapt an existing image, pass it as `styleReferenceUrl`,
    `youtubeUrl` or `templateId` and describe what changes and what stays.
 5. **Show the user** the prompt and settings, then **create the project** (once) and **start a generation** with 1 variation.
-6. **Poll** `get_generation` / `GET /api/thumbnails/<projectId>/detailed-status` every 10–20 s until the **newest job**
+6. **Poll** `get_generation({projectId, summary:true, page:1, limit:5})` / `GET /api/thumbnails/<projectId>/detailed-status?summary=true&page=1&limit=5` every 10–20 s until the **newest job**
    is `completed` (images in its results) or `failed` (read `errorMessage`). Show the image URLs.
 7. **Iterate in the same project** (rule 2): adjust the prompt or options, start a new generation.
 
@@ -92,6 +94,9 @@ Find existing projects with `list_thumbnail_projects` before creating duplicates
   Library favorites/trash, prompt assistance and result iteration are available through API/MCP.
 - **Three image namespaces**: stored assets use `assetId`/`userImageId`; catalog templates use `templateId`;
   temporary bucket files have `id: ""`, `fileKey`, `ownerScope: "user"` and are referenced by URL.
+  Find favorite logos with `list_assets({type:"bucket", search:"logo", favorite:true})`; bucket lists
+  expose `isFavorite`, exact filtered totals and `sortBy`/`sortOrder` (default creation date descending).
+  See the assets section in the transport reference for enumeration cost and pagination semantics.
   List assets to find unpublished uploads; use `scope: "mine"` for your private catalog templates.
 - **Persons**: update name/description (`null` clears), detach a photo, delete a person or set the organization
   default with the resource tools. Deleting a person or detaching a photo keeps the underlying asset.
