@@ -2,24 +2,25 @@
 name: agentsmail
 description: >
   Work with AgentsMail — its API v1 (lists, contacts, tags, templates,
-  campaigns, automated sequences, sender addresses, sending domains, stats,
+  campaigns, automated sequences, date-driven series, sender addresses,
+  sending domains, stats,
   hosted sign-up pages) and the craft of the emails themselves: writing a
   template a human can edit, editable zones, dark mode, deliverability.
   Use when the user says "AgentsMail", "send a campaign", "import contacts",
   "create an email template", "build an editable template", "add editable zones",
-  "build a drip sequence", "check campaign stats", "verify sending domain",
+  "build a drip sequence", "schedule a launch series", "check campaign stats",
+  "verify sending domain",
   "why was my send refused", "create a sign-up page", "collect subscribers",
   "hosted subscribe page", "sign-up form", or when automating email marketing
   programmatically.
 license: MIT
+compatibility: Requires curl or any HTTP client. An AgentsMail API key is required.
 metadata:
   author: mikecodeur
-  version: '2.4'
+  version: '2.5'
 ---
 
 # AgentsMail API — Email Marketing Skill
-
-Requires curl or any HTTP client and an AgentsMail API key.
 
 Automate email marketing through the AgentsMail REST API: build audiences, write templates,
 render them safely, send campaigns, run automated sequences, and read results — without touching
@@ -141,7 +142,7 @@ at the last step.
 | POST                     | `/lists/:listId/contacts/bulk`                 | Import up to 500 contacts (emits nothing)                               |
 | GET                      | `/contacts?listId=…`                           | Paginated contacts — `listId` is **required**                           |
 | GET                      | `/contacts/:id`                                | Contact detail                                                          |
-| PATCH                    | `/contacts/:id`                                | Update `firstName` / `lastName` only                                    |
+| PATCH                    | `/contacts/:id`                                | Update names and optional phone, birthDate, locale, country                                    |
 | POST                     | `/contacts/:id/tags`                           | Attach a tag by name (get-or-create, idempotent)                        |
 | DELETE                   | `/contacts/:id/tags/:tagId`                    | Detach a tag (idempotent)                                               |
 | POST                     | `/contacts/:id/unsubscribe`                    | Unsubscribe (idempotent)                                                |
@@ -174,7 +175,9 @@ at the last step.
 | GET                      | `/campaigns/:id`                               | Campaign + recipient count + send progress                              |
 | PATCH                    | `/campaigns/:id`                               | Edit a **draft** campaign                                               |
 | POST                     | `/campaigns/:id/test-send`                     | Send a test (real send)                                                 |
-| POST                     | `/campaigns/:id/send`                          | Trigger or schedule the send                                            |
+| POST                     | `/campaigns/:id/send`                          | Send now (legacy `scheduledAt` still accepted)                          |
+| POST                     | `/campaigns/:id/schedule`                      | Schedule or move the send to `scheduledAt`                              |
+| DELETE                   | `/campaigns/:id/schedule`                      | Unschedule: back to draft, no date                                      |
 | GET                      | `/campaigns/:id/stats`                         | Delivery, opens, clicks, unsubscribes                                   |
 | **Sequences**            |                                                | _20 routes — see the Sequences section_                                 |
 | GET / POST               | `/sequences`                                   | List sequences / create one **and** its version 1 draft                 |
@@ -189,6 +192,10 @@ at the last step.
 | POST                     | `/sequences/:id/versions/:vId/nodes/:nId/move` | Move a node one step up or down                                         |
 | GET / POST               | `/sequences/:id/versions/:vId/edges`           | Read wires / wire two nodes                                             |
 | DELETE                   | `/sequences/:id/versions/:vId/edges/:eId`      | Unwire two nodes                                                        |
+| **Series**               |                                                | _date-driven sequences — see the Series section_                        |
+| GET / POST               | `/series`                                      | List series / create one **and** its version 1 draft                    |
+| GET                      | `/series/upcoming`                             | Every step not yet sent, soonest first, with its due moment             |
+| GET / PATCH / DELETE     | `/series/:id`                                  | Detail / rename, activate, pause, move the start date / delete          |
 | **Sign-up pages**        |                                                | _hosted pages that collect subscribers — see the Sign-up pages section_ |
 | GET                      | `/signup-pages`                                | Paginated sign-up pages, `?status=` and `?search=`                      |
 | POST                     | `/signup-pages`                                | Create one — **a draft unless you pass `status`**                       |
@@ -280,17 +287,64 @@ curl -s -H "$AUTH" "$BASE/campaigns/<id>"
 curl -s -H "$AUTH" "$BASE/campaigns/<id>/stats"
 ```
 
+### Return clickable campaign links
+
+After creating, reading or editing a campaign, give the user a clickable Markdown link,
+not only its id. API campaign responses (create, list, get and edit) and MCP
+`create_campaign`, `update_campaign`, `get_campaign`, `list_campaigns` return the same fields:
+
+| Field                | Show when non-null                                             |
+| -------------------- | -------------------------------------------------------------- |
+| `campaignUrl`        | Open the campaign in AgentsMail                                |
+| `campaignEditorUrl`  | Edit the content of a draft the current user can modify        |
+| `campaignStatsUrl`   | View statistics after the campaign is sent                     |
+| `campaignPreviewUrl` | Preview the sent email inside AgentsMail                       |
+| `publicCampaignUrl`  | Share the public archive of a sent campaign, only when enabled |
+
+Use the returned URLs verbatim. For example, render `[Open campaign](<returned campaignUrl>)`
+and, for a draft, `[Edit content](<returned campaignEditorUrl>)`. Skip null links.
+Only `publicCampaignUrl` is public; all other links require sign-in and organization access.
+URLs use the organization's language (`en` fallback). If its URL slug is missing, all five
+links are null; do not invent a route or claim that a private preview is public.
+
+For older responses without these fields, obtain the organization slug from `GET /api/v1/me`
+or the MCP organization context. The frontend routes, using the organization's language when
+known (otherwise `en`) and URL-encoded segments, are:
+
+- `/{locale}/team/{organizationSlug}/campaigns/{campaignId}`
+- The same path + `/content` for an editable draft, `/stats` or `/preview` for a sent campaign.
+
+Prefer fresh API/MCP response links over this fallback. Never derive a public URL from a campaign
+id: the public archive uses its own campaign slug and publication settings. If `publicCampaignUrl`
+is absent or null, do not offer a public link. Returning a URL neither sends nor publishes a campaign.
+
 **Key design fact:** a campaign's `content` **is** the HTML that gets sent, never a live reference
 to the template. Editing the template afterwards changes nothing for campaigns already created.
 `templateId` is optional — without it the campaign starts from a default skeleton.
+
+**Fix a draft instead of recreating it.** Over MCP, `update_campaign({campaignId, ...})` takes the
+same fields as `PATCH /campaigns/:id` — `name`, `subject`, `preheader` (or `previewText`), `content`,
+`listId`, `tagId`, `topicId`, `templateId`, `sendingIdentityId`. A field you leave out is unchanged;
+`null` removes the value where the field allows it. Only a draft can be changed: anything already
+scheduled, sending or sent is refused with the reason. Like `PATCH`, Mailchimp merge tags in `content`
+are converted and the unsupported ones come back in `unsupportedTags`.
 
 `POST /campaigns` and `PATCH /campaigns/:id` also take **`sendingIdentityId`** — which sender
 address signs this campaign. Absent or `null` means "the organization's default". Read the ids from
 `GET /settings/identities`.
 
-Scheduling: `POST /campaigns/:id/send` accepts `{"scheduledAt": "2026-01-01T09:00:00+01:00"}`,
-ISO 8601 **with offset**, at least 60 seconds in the future → `202 {"status": "scheduled"}`.
-Without a body → `202 {"status": "send_requested"}`.
+Scheduling: `POST /campaigns/:id/schedule` with `{"scheduledAt": "2026-01-01T09:00:00+01:00"}`,
+ISO 8601 **with offset**, at least 60 seconds in the future → `202 {"status": "scheduled",
+"scheduledAt": "…"}`. A draft is scheduled; an already scheduled campaign is moved to the new time;
+any other status returns 409. `DELETE /campaigns/:id/schedule` puts a scheduled (or paused)
+campaign back to draft without a date → `200 {"status": "draft"}`; a campaign that is not scheduled
+returns 409. `POST /campaigns/:id/send` sends now (`202 {"status": "send_requested"}`); it still
+accepts a `scheduledAt` body for compatibility, but prefer `/schedule`.
+
+Over MCP: `schedule_campaign({campaignId, scheduledAt, confirmation: true})` and
+`unschedule_campaign({campaignId})` follow the same rules, under the send permission. Like
+`send_campaign`, scheduling books a real send: get the user's explicit approval for that campaign
+and time before passing `confirmation: true`.
 
 Only `draft` and `scheduled` campaigns can be sent. A `paused` campaign keeps its
 `scheduledAt` but returns 409 until it is resumed in the app. A `sent` campaign returns 409 and is
@@ -365,17 +419,6 @@ organization keeps inheriting future default improvements — that is what the r
 ---
 
 ## Writing templates
-
-### API compatibility
-
-`previewText` and `{{previewText}}` require API support for these aliases. If campaign responses do
-not yet expose `previewText`, use `preheader` and `{{preheader}}` instead, including for `/render`.
-After creating or updating a campaign, check that the returned preview value matches the text you
-requested; a successful response alone does not prove an unrecognized field was saved.
-
-Organization-only handling of the legacy `doubleOptIn` flag also depends on the API rollout.
-Omit that flag and read the organization's sign-up setting; older API behavior may still honor
-an explicit `true`. Check the returned contact status rather than assuming confirmation was skipped.
 
 ### Variables
 
@@ -589,6 +632,13 @@ curl -X POST -H "x-api-key: $AGENTMAIL_API_KEY" \
 server, same four levels as the media screen in the app. It never makes a file bigger: if
 re-encoding does not shrink it, the original is stored instead. An animated GIF is never touched.
 
+**Over MCP, import by URL.** `upload_media({url})` takes a public `https` address: AgentsMail
+downloads the image itself, so nothing has to be pasted into the tool call. The type is checked on
+the downloaded content, not on what the address claims; private or local addresses, too many
+redirects, a slow server or a file over the size limit are refused. `name` is optional (taken from
+the address). Keep `base64` (with `name` and `type`) for small images you generated yourself;
+send exactly one of `url` or `base64`. The same image types, size limit and plan ceiling apply.
+
 `GET /media` paginates with `?folder=` and `?search=`, but answers `hasMore` instead of a total —
 the storage behind the library cannot count without listing everything.
 
@@ -608,6 +658,41 @@ Deleting does not check whether a template or campaign still references the file
 media just breaks the `<img>` tag on its next open.
 
 ---
+
+## Enrich a contact after email capture
+
+`phone`, `birthDate`, `locale` and `country` are optional on single upsert, each bulk entry and
+`PATCH /contacts/:id`. Omission preserves; `null` clears; empty strings fail validation.
+New contacts default to `null`. GET detail/list and MCP return each as `string | null`.
+
+| Field | Format |
+| --- | --- |
+| `phone` | Leading `+`, 8–15 digits, first nonzero. Whitespace, parentheses, periods and hyphens are removed. No local numbers, `00` prefix or extensions. No reachability guarantee. |
+| `birthDate` | Real `YYYY-MM-DD` date, years 0001–9999, no later than today UTC; date-only string. |
+| `locale` | BCP 47 tag, trimmed, canonicalized, up to 100 characters; not limited to en/fr/es. |
+| `country` | Two ASCII letters, trimmed and uppercased. Shape only, not checked against a country registry. |
+
+Save the id from the first call. Never look up by email across all lists: identity is per list.
+
+```js
+const base = 'https://www.agentsmail.io/api/v1'
+const headers = {'x-api-key': key, 'Content-Type': 'application/json'}
+const signup = await fetch(`${base}/lists/${listId}/contacts`, {
+  method: 'POST', headers, body: JSON.stringify({email}),
+})
+if (!signup.ok) throw new Error(await signup.text())
+const {data: contact} = await signup.json()
+const update = await fetch(`${base}/contacts/${contact.id}`, {
+  method: 'PATCH', headers, body: JSON.stringify({phone: '+33612345678'}),
+})
+if (!update.ok) throw new Error(await update.text())
+```
+
+MCP equivalent: `upsert_contact({listId, email})` → retain `data.id` →
+`update_contact({contactId: data.id, phone: "+33612345678"})` → `get_contact({contactId: data.id})`.
+`get_contact` needs read access; `update_contact` needs manage access. Updating the profile never
+changes subscription status or consent. A phone number is not SMS/WhatsApp consent.
+Invalid profile fields return HTTP 400; in bulk they reject the entry in the batch report.
 
 ## Importing contacts
 
@@ -661,7 +746,7 @@ you model an audience: there is no cross-list identity.
 `GET /campaigns/:id` returns the campaign plus three things nothing else gives you:
 
 - `recipientCount` — how many subscribers the target hits **right now** (live, never stored)
-- `progress` — `{total, sent, failed, pending, sending, lastSentAt}`
+- `progress` — `{total, sent, failed, pending, sending, staleSending, lastActivityAt, chunkSize, diagnostics}`
 - `sendingEnabled` — whether sending is currently enabled across AgentsMail
 
 Read them together:
@@ -669,7 +754,14 @@ Read them together:
 - `sendingEnabled: false` → polling until `sent` **will never converge**. The campaign stays
   `draft` with zero progress.
 - `sending: 0` with `pending` remaining on a `sending` campaign → it is stuck, not slow.
-  `lastSentAt` is the only signal that separates the two.
+  `lastActivityAt` is the activity signal that separates the two.
+
+`progress.diagnostics.failures` lists up to ten safe failure reasons with their `count`;
+`omittedCount` counts failures outside that list. `processingError`, when present,
+contains the last processing error and `updatedAt`, even if no messages were created.
+The same fields are returned by MCP `get_campaign`. Report the reason and campaign
+reference to the user; a failure is never permission to resend automatically.
+A newer successfully started attempt clears the old processing error.
 
 Campaign statuses: `draft`, `scheduled`, `paused`, `sending`, `sent`, `failed`.
 
@@ -693,6 +785,19 @@ A test writes **no** statistics and changes **no** status: no open tracking, no 
 
 A contact enters on a trigger, then walks a graph of nodes: send an email, wait, add a tag, remove
 a tag, call a webhook, stop.
+
+**Sequence, series, campaign — three words, do not mix them.** A **campaign** is one email to one
+audience, one departure. A **sequence** is the journey described here: contacts enter on a trigger
+and walk it at their own pace. A **series** is a sequence driven by a **calendar** instead of a
+trigger — nobody is enrolled, the whole audience receives dated steps together, and each sending
+step goes out as its own campaign named `<series name> · step N`.
+
+There is **no `/series` resource**: a series is a sequence whose version carries
+`triggerType: "fixed_date"`, which is how you recognize one when reading. **You cannot create one
+through the API** — `fixed_date` is refused with `400`, on create and on a draft's trigger alike;
+series are set up in the app, where the start date and each step's send time are chosen. Reading,
+renaming, activating, pausing and deleting work like any other sequence, and `/enrollments` is
+empty for a series by design — it enrols nobody.
 
 **Four objects:**
 
@@ -747,6 +852,53 @@ publish, not on every edit — so build freely, then read the refusal.
 the only way to see a contact that finished or dropped out.
 
 ---
+
+## Series — a sequence on a calendar
+
+A series sends **dated emails to a whole audience at once**: a teaser on 15 March, the announcement
+on the 18th, a reminder on the 22nd. Nobody is enrolled and nobody has a personal clock — everyone
+is always on the same step.
+
+**It is a sequence**, with `triggerType: "fixed_date"` on its version. Its id **is** a sequence id.
+
+| Route                  | What it does                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /series`         | Create one: `name`, `listId`, optional `startsAt`, `audienceSegmentId`, `audienceTagId`. The trigger is imposed — `POST /sequences` refuses `fixed_date` because half a series is unpublishable |
+| `GET /series`          | Only series. Enrollment sequences never appear                                                                                                                                                  |
+| `GET /series/:id`      | One series. `400` if the id is an enrollment sequence                                                                                                                                           |
+| `PATCH /series/:id`    | `name`, `topicId`, `status`; and `startsAt`, `listId`, audience — **the last four need an open draft**                                                                                          |
+| `DELETE /series/:id`   | Definitive. Campaigns already sent are kept                                                                                                                                                     |
+| `GET /series/upcoming` | Steps not yet sent, with `dueAt`. `campaignId` is always `null` — it does not exist yet                                                                                                         |
+
+**The steps are NOT here.** Nodes, wires, versions and publishing use the Sequences routes, with the
+series id: `POST /sequences/:id/versions/:vId/nodes`, `…/edges`, `…/publish`. There is no second
+copy of those eighteen routes.
+
+**A send step takes TWO calls.** `POST …/nodes` reads only the `type` (plus `templateId`,
+`preheader`, and the node's own family: `waitHours`, `tagId`, `webhookUrl`) — a new `send_email` is
+born with the default content and an empty subject. Write the subject, the content and
+`sendTimeMinutes` with `PATCH …/nodes/:nodeId` on the node that comes back. Sending them to `POST`
+is silently ignored.
+
+**And one PATCH per FAMILY.** The subject, the preview text and the content are one family; the
+send time is another; `waitHours`, `tagId` and `webhookUrl` are each their own. Two families in the
+same call is refused with `400` — so setting a step's text and its hour takes two PATCH calls.
+
+**How a step gets its moment:** the previous step's moment, plus the **wait blocks** between them
+(`waitHours`), then the first occurrence of the step's `sendTimeMinutes` (minutes from midnight,
+`540` = 09:00). Without a send time the step goes out as soon as the wait elapses. A send time never
+moves a step earlier: if it has passed, the step goes out the next day.
+
+**Moving `startsAt` moves the entire series** — no step carries a date of its own.
+
+**Publishing refuses** a series with no start date, and refuses two steps that would land on the
+same instant (the second would never go out). Both refusals name the step.
+
+**On the day**, a sending step creates a real campaign named `<series name> · step N` and sends it.
+Before that, nothing exists — do not look for a draft campaign, and do not create one.
+
+**`/sequences/:id/enrollments` is empty on a series.** That is correct, not a bug: nobody is
+enrolled.
 
 ## Sign-up pages — collecting subscribers without code
 
@@ -867,3 +1019,5 @@ plan. Exceeding one answers 400 and names the ceiling.
 | Marking the `<div>` that wraps a button's `<table>`  | The zone contains a `<table>`, so it is refused whole. Mark the `<a>`.                 |
 | Putting `{{unsubscribeUrl}}` inside a zone           | It becomes deletable from the editor, and saving is refused when it disappears.        |
 | Declaring one zone and expecting a block library     | A template offers as many block types as it declares zones. Ship one exemplar of each. |
+
+For the latest API details, including updates not yet reflected in this skill, consult [the official documentation](https://www.agentsmail.io/en/docs/api).

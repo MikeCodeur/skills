@@ -77,8 +77,8 @@ runtime and are never part of the package.
 
 ## AgentsMail packaging
 
-The standalone skill in `agentsmail/` is version **2.4**. The marketplace plugin in
-`plugins/agentsmail/` is version **1.4.0**, with identical skill content and manifests
+The standalone skill in `agentsmail/` is version **2.5**. The marketplace plugin in
+`plugins/agentsmail/` is version **1.5.0**, with identical skill content and manifests
 for both Claude Code and Codex. Both marketplace catalogs register this plugin.
 
 This release documents campaign `previewText`, the `{{previewText}}` alias, backward
